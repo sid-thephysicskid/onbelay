@@ -7,14 +7,60 @@ on:
   workflow_dispatch:
 
 # The guard is the product, so every gate that proves it works runs on every
-# change. None of these need network or secrets.
+# change to it. None of these need network or secrets.
 permissions:
   contents: read
 
 jobs:
+  # A prose change cannot break the parser, and paying four minutes to prove it
+  # again is how people learn to merge without looking. This decides once, and
+  # every job below reads the answer.
+  #
+  # It does NOT use `paths-ignore`. main requires five named checks, and a
+  # required check that is SKIPPED never reports, so a docs PR would sit
+  # unmergeable forever. The jobs therefore always run and report; on a
+  # docs-only change their expensive steps are what get skipped.
+  scope:
+    name: what changed
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: decide
+        # Fails SAFE in every direction it cannot resolve: an unknown base, an
+        # unreachable base, or an empty diff all mean "run everything". The only
+        # path to a fast run is a diff that was read and contained nothing but
+        # prose.
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request) base="${{ github.event.pull_request.base.sha }}" ;;
+            push)         base="${{ github.event.before }}" ;;
+            *)            base="" ;;
+          esac
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "base unresolvable, running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed="$(git diff --name-only "$base" "$GITHUB_SHA")"
+          echo "changed files:"; printf '%s\n' "$changed"
+          # Anything outside this list is code. Note skills/ and operator-skills/
+          # are markdown but are NOT here: they are the product, and the evals
+          # read them.
+          if [ -z "$changed" ] || printf '%s\n' "$changed" | grep -qvE \
+               '^(README\.md|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|THIRD-PARTY-NOTICES\.md|docs/)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs only"
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   guard:
     name: guard rules
     runs-on: ubuntu-latest
+    needs: scope
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +73,7 @@ jobs:
       # controls the action can move it, and this repo's whole job is guarding
       # what runs. The trailing comment is the version the SHA corresponds to.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Unconditional, because check-docs at the bottom needs it on every run.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ matrix.python }}
@@ -34,6 +81,7 @@ jobs:
       # version package.json declares, or the only node ever exercised is
       # whatever the runner happens to ship, and the stated floor is untested.
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        if: needs.scope.outputs.code == 'true'
         with:
           node-version: "20"
 
@@ -41,25 +89,32 @@ jobs:
       # say nothing about correctness. The big-instance DoS shapes still run
       # in the dedicated job below, where a failure means something.
       - name: rule suite
+        if: needs.scope.outputs.code == 'true'
         run: python3 hooks/tests.py --no-perf
 
       # The layer a defect silently disables everything behind.
       - name: adapter suite
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/adapters.py
 
       - name: Codex hook merge
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_install_codex_hooks.py
 
       - name: Claude settings merge
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_install_settings.py
 
       - name: release metadata
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_release_metadata.py
 
       - name: npm CLI
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_npx_cli.py
 
       - name: project agent initializer
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_agent_init.py
 
       # These three gated a release but never a pull request.
@@ -67,15 +122,15 @@ jobs:
       # setups" section through the npx path, and check-docs is the only
       # thing keeping the README and the packaged skills in agreement.
       - name: onboarding through the npx path
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_onboarding.py
 
       - name: installer helpers
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_install_helpers.py
 
-      - name: docs match code
-        run: ./scripts/check-docs
-
       - name: wizard tests
+        if: needs.scope.outputs.code == 'true'
         run: python3 operator-skills/wizard/tests/test_wizard.py
 
       # Two different jobs. test_harness.py proves the CHECKS work, by feeding
@@ -84,27 +139,41 @@ jobs:
       # means the harness verifies itself and never the product, which is how
       # two orphaned skills sat in the output of every local run unnoticed.
       - name: eval harness self-test
+        if: needs.scope.outputs.code == 'true'
         run: python3 evals/test_harness.py
 
       - name: skills evals
+        if: needs.scope.outputs.code == 'true'
         run: python3 evals/run_evals.py
 
       # Fails on an UNTRIAGED leak only: a known one carries a written reason.
       - name: red team corpus
+        if: needs.scope.outputs.code == 'true'
         run: python3 evals/redteam.py evals/redteam-candidates.txt
+
+      # ALWAYS. This is the gate a README change can actually fail: it derives
+      # the skill list and the case count from the packaged directories, so a
+      # renamed skill or a stale number is caught here and nowhere else. It is
+      # also the whole reason a docs-only run is not simply skipped.
+      - name: docs match code
+        run: ./scripts/check-docs
 
   performance:
     name: DoS budgets
     runs-on: ubuntu-latest
+    needs: scope
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        if: needs.scope.outputs.code == 'true'
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        if: needs.scope.outputs.code == 'true'
         with:
           python-version: "3.13"
       # Five fail-open DoS bugs so far, each quadratic work on a shape nobody
       # had a big instance of. A hung hook fails OPEN, so this is a safety
       # gate, not a speed one. Runs alone so it is not competing for the runner.
       - name: full suite including wall-clock budgets
+        if: needs.scope.outputs.code == 'true'
         run: python3 hooks/tests.py
 
   # Linux only. macOS runners bill at 10x and this suite takes ~16 minutes
@@ -117,15 +186,19 @@ jobs:
   installer:
     name: installer
     runs-on: ubuntu-latest
+    needs: scope
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        if: needs.scope.outputs.code == 'true'
       # Runs against hostile fake HOMEs, never the runner's real one.
       - name: installer suite
+        if: needs.scope.outputs.code == 'true'
         run: bash tests/install_test.sh
 
   hygiene:
     name: hygiene
     runs-on: ubuntu-latest
+    needs: scope
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
@@ -133,6 +206,7 @@ jobs:
           python-version: "3.13"
 
       - name: shellcheck
+        if: needs.scope.outputs.code == 'true'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           # Same list as scripts/shellcheck-if-present, which runs it locally
@@ -144,6 +218,7 @@ jobs:
       # -W error::SyntaxWarning promotes warnings too: an invalid escape in a
       # non-raw docstring shipped for months because a warning is not a failure.
       - name: python syntax
+        if: needs.scope.outputs.code == 'true'
         run: |
           python3 -W error::SyntaxWarning -m compileall -q hooks/ evals/ operator-skills/ scripts/ tests/
           python3 -c "import sys; sys.path.insert(0,'hooks'); import guard_rules; print('imports clean')"
@@ -151,6 +226,7 @@ jobs:
       # Canonical skill sources must travel with an archive. Adapted sources
       # carry provenance in THIRD-PARTY-NOTICES.md instead of a vendor tree.
       - name: self-contained skill sources
+        if: needs.scope.outputs.code == 'true'
         run: |
           test ! -e vendor || { echo "vendor/ is back"; exit 1; }
           test -z "$(find skills -maxdepth 1 -mindepth 1 -type l)" \
@@ -158,12 +234,17 @@ jobs:
 
       # A personal override file must never be committed.
       - name: no personal overrides committed
+        if: needs.scope.outputs.code == 'true'
         run: |
           git ls-files --error-unmatch AGENTS.local.md >/dev/null 2>&1 \
             && { echo "AGENTS.local.md is tracked and must not be"; exit 1; } || true
 
       - name: credential gate detects current issuer formats
+        if: needs.scope.outputs.code == 'true'
         run: python3 tests/test_audit_patterns.py
 
-      - name: no secrets or credentials
+      # ALWAYS. Prose is exactly where a real key gets pasted by accident, and
+      # this scan is a couple of seconds. Skipping it on the changes most likely
+      # to carry one would be the wrong saving.
+      - name: no secrets in the tree
         run: python3 tests/audit.py
