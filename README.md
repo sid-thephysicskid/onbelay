@@ -24,7 +24,7 @@ Restart your agent and you're done. Codex will ask you to review the new hooks i
 npx @sid-thephysicskid/agent-config@latest install guard
 ```
 
-That installs hooks and nothing else. No skills directory, no instruction files, nothing added to your Codex config. It's the piece I'd want on a machine even if I disagreed with everything else here.
+That installs the hooks and nothing else: no skills directory, no instruction files, no routing. If you already have a `~/.codex`, it does wire the guard into `~/.codex/hooks.json` too, backing up your existing file first, because a guard that only covers one of your two agents is not doing its job. It's the piece I'd want on a machine even if I disagreed with everything else here.
 
 | Command | What you get |
 |---|---|
@@ -80,15 +80,15 @@ BLOCKED: pushing directly at 'main'.
 Do this instead: push your feature branch and open a PR
 ```
 
-It covers destructive Git, filesystem deletes, credential and key reads, production databases, and deploys that skip the pipeline. [docs/guard-coverage.md](docs/guard-coverage.md) is the full list, generated from the rules themselves so it can't drift from what the code does.
+It covers destructive Git, filesystem deletes, credential and key reads, production databases, and deploys that skip the pipeline. [docs/guard-coverage.md](docs/guard-coverage.md) has the full list, and the table of individual rules in it is generated from the rules themselves, so that part cannot drift from what the code does.
 
 Two things to be straight about, because they decide whether this is useful to you:
 
-**It's a safety net, not a security boundary.** It stops a careless agent, not a determined one. Hide a command in a variable or an inline program and it goes through. That's a deliberate line, and [every gap is written down](evals/redteam-candidates.txt) with its reason and the date it was decided. Keep your branch protection, least-privilege access, backups, and review.
+**It's a safety net, not a security boundary.** It stops a careless agent, not a determined one. Hide a command in a variable or an inline program and it goes through. That's a deliberate line, and [every gap is written down](evals/redteam-candidates.txt) with the reason it was accepted. There are 58 of them against 98 red-team candidates, and I would rather you read that number here than discover it yourself. Keep your branch protection, least-privilege access, backups, and review.
 
 **It fails open.** If a rule crashes, your agent keeps working and the failure gets logged where `doctor` will show it. A guard that bricks your CLI is worse than no guard.
 
-Behind that: 1,878 test cases, every rule pinned in both directions, so each thing it refuses has a paired case for the nearest legitimate command it must let through.
+Behind that: 1,878 test cases, of which 702 exist to prove the guard does *not* fire, plus 285 ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
 
 ## The skills, and why each one exists
 
