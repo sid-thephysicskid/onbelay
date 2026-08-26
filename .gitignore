@@ -8,3 +8,7 @@ AGENTS.local.md
 # Agent worktrees for multi-sitting work. Never committed.
 .claude/worktrees/
 
+# A personal override. CI already fails if AGENTS.local.md is tracked;
+# this is the same rule for the settings file, before it gets that far.
+.claude/settings.local.json
+AGENTS.local.md

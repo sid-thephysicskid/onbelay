@@ -1,7 +1,7 @@
 {
   "name": "@sid-thephysicskid/agent-config",
   "version": "0.3.0",
-  "description": "Auditable guardrails and focused delivery workflows for coding agents.",
+  "description": "Guardrails for coding agents, plus the workflow skills to keep them pointed at the right problem.",
   "license": "MIT",
   "author": "Sid Abhinav",
   "homepage": "https://github.com/sid-thephysicskid/agent-config#readme",
@@ -52,7 +52,7 @@
     "provenance": true
   },
   "scripts": {
-    "test": "python3 tests/test_npx_cli.py",
+    "test": "./scripts/gates",
     "prepack": "python3 tests/test_release_metadata.py && python3 tests/test_npx_cli.py"
   },
   "keywords": [

@@ -1,0 +1,58 @@
+name: The guard let something through
+description: A destructive command was allowed that the docs say is refused.
+title: "allowed: <the command, shortened>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check [`evals/redteam-candidates.txt`](../../blob/main/evals/redteam-candidates.txt)
+        first. Gaps listed there are deliberate and already have a written
+        reason, so they are not defects. A gap that is NOT listed is one.
+
+        This is a safety net for a careless agent, not a security boundary.
+        Hiding a command inside a variable, an inline program, or a command
+        substitution is out of scope on purpose.
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command that was allowed
+      description: >
+        Verbatim, including quoting. Please do not run it; passing the string
+        to the rules is enough to reproduce.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: claim
+    attributes:
+      label: Where it says this is refused
+      description: >
+        A line in docs/guard-coverage.md, SECURITY.md, or the README. If nothing
+        claims it, this is a feature request rather than a defect, which is
+        fine, just say so.
+      placeholder: docs/guard-coverage.md, "Destructive Git" row
+    validations:
+      required: true
+  - type: input
+    id: cwd
+    attributes:
+      label: Working directory
+      placeholder: ~/code/myapp (on branch main)
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Version and platform
+      description: "Output of: npx @sid-thephysicskid/agent-config@latest --version, plus your OS."
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: blocked_spelling
+    attributes:
+      label: A spelling that IS refused, if you found one
+      description: >
+        Optional, and the single most useful field in this form. Two spellings
+        of one act disagreeing usually names the exact rule.
