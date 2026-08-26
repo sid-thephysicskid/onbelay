@@ -37,13 +37,13 @@ found by this repo's own corpus catching a change to itself.
 ### Fixed
 
 The guard did not protect its own installed files. The npm install copies the
-payload to `~/.local/share/onbelay/` and leaves `~/.claude/hooks` as
+payload to `~/.local/share/agent-config/` and leaves `~/.claude/hooks` as
 symlinks into it, and only the symlink location was guarded, so
-`rm -rf ~/.local/share/onbelay` removed the whole guard and was allowed.
+`rm -rf ~/.local/share/agent-config` removed the whole guard and was allowed.
 The hook shim exits 0 when its file is missing, so the result was a machine
 with no guard and nothing saying so.
 
-`ONBELAY_PROTECTED_BRANCHES` did not reach `branch -f`, `checkout -B` or
+`AGENT_GUARD_PROTECTED_BRANCHES` did not reach `branch -f`, `checkout -B` or
 `update-ref`, which carried a hand-typed copy of the default list. It was wrong
 in both directions: a team on `develop` got no protection from those three, and
 an empty value, which the README says turns the rules off, still refused moving

@@ -4,7 +4,7 @@ These are conservative defaults for agents changing software. Repository instruc
 
 ## Safety guardrails
 
-When Agent Guard is installed, its PreToolUse hooks block common high-impact mistakes before execution. The written rules still apply when the hooks are absent. They are a safety net for a careless agent, not a security boundary. Do not work around a block or ask the user to disable it.
+When the On Belay guard is installed, its PreToolUse hooks block common high-impact mistakes before execution. The written rules still apply when the hooks are absent. They are a safety net for a careless agent, not a security boundary. Do not work around a block or ask the user to disable it.
 
 - Never commit or push on `main`, `master`, `prod`, `production`, `trunk`, or `release`. Branch and use a pull request. Merge, revert, cherry-pick, and `am` can create commits too. Abort, skip, and quit forms are safe exits. A continue form may write a commit, so check the target branch yourself before continuing an in-progress operation.
 - Never force-push, use `reset --hard`, run `clean -f`, discard the whole working tree, or force-delete a branch. The one exception is `git push --force-with-lease=<branch>:<sha>` on your own open PR branch after a rebase. Use the current branch and a full pre-fetch commit SHA. It is refused on protected branches.
@@ -75,7 +75,7 @@ instructions for the two hosts.
 
 Announce the chosen skill and why. Follow its handoff when the user has already authorized the next stage. Stop at approval gates for external or irreversible actions.
 
-The optional Agent Operator package adds `research`, `wizard`, and `handoff`. Use `research` for bounded primary-source work, `wizard` for human-only credential or dashboard steps, and `handoff` when state must cross an agent, host, directory, or long pause. Do not assume those skills are installed.
+The optional extras (`--extras`) add `research`, `wizard`, and `handoff`. Use `research` for bounded primary-source work, `wizard` for human-only credential or dashboard steps, and `handoff` when state must cross an agent, host, directory, or long pause. Do not assume those skills are installed.
 
 ## Local overrides
 
