@@ -1030,7 +1030,22 @@ report_workflow() {
 (( COMPACT )) || echo
 if (( CHECK )); then
   if (( PROBLEMS )); then
-    echo "Check complete: $PROBLEMS problem(s). Run ./install.sh $PROFILE to fix."
+    # The npx CLI takes a profile positionally, except `full`, which it spells
+    # `--extras`, and `standard`, which is its default.
+    case "$PROFILE" in
+      full)     _fix_flag=" --extras" ;;
+      standard) _fix_flag="" ;;
+      *)        _fix_flag=" $PROFILE" ;;
+    esac
+    # AGENT_CONFIG_COMPACT is set by bin/agent-config.js and by nothing else,
+    # so it is already the answer to "how did this user install". Printing
+    # `./install.sh` at an npx user names a file they do not have, and it was
+    # on EVERY non-clean doctor run.
+    if (( COMPACT )); then
+      echo "Check complete: $PROBLEMS problem(s). Run: npx @sid-thephysicskid/agent-config@latest install${_fix_flag} to fix."
+    else
+      echo "Check complete: $PROBLEMS problem(s). Run ./install.sh $PROFILE to fix."
+    fi
     exit 1
   fi
   if [[ "$PROFILE" == standard || "$PROFILE" == full ]]; then
