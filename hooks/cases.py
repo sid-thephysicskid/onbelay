@@ -290,6 +290,24 @@ CMD_CASES += [
     ("python3 - <<'PY'\nimport shutil\nshutil.rmtree('build')\nPY", FEAT, False),
 ]
 
+
+# A redirect is not a refspec. `2>&1`, `>/dev/null` and `> out.log` do not
+# start with `-`, so _safe_force_with_lease counted each as "some other ref"
+# and refused the one force-push this suite deliberately allows. Found by
+# running the exact command that rule's own fix line recommends, with
+# `2>&1 | tail` on the end, which is how anyone actually types it. A guard
+# whose remediation does not unblock you is the one people switch off.
+CMD_CASES += [
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x 2>&1', FEAT, False),
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x >/dev/null', FEAT, False),
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x > out.log', FEAT, False),
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x 2>&1 | tail -2', FEAT, False),
+    # ...and a redirect must not launder a lease that was never safe.
+    ('git push --force-with-lease=other:0123456789abcdef0123456789abcdef01234567 origin feature/x 2>&1', FEAT, True),
+    ('git push --force-with-lease origin feature/x >/dev/null', FEAT, True),
+    ('git push --force-with-lease=main:0123456789abcdef0123456789abcdef01234567 origin main 2>&1', MAIN, True),
+]
+
 PATH_CASES = [
     ('/app/.env', False, True),
     ('/app/.env.production.local', False, True),
