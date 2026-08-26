@@ -80,3 +80,63 @@ The optional extras (`--extras`) add `research`, `wizard`, and `handoff`. Use `r
 ## Local overrides
 
 If `AGENTS.local.md` exists next to this file, read it. It is the place for personal writing style, preferred tools, and environment-specific rules that should not be published with this baseline.
+
+## Releasing
+
+Read this before touching a release. It is written down because rediscovering
+it has cost hours, twice.
+
+**The whole procedure, when the workflow is already wired:**
+
+```
+gh release create v<X.Y.Z> --target main --title v<X.Y.Z> --notes-file <notes>
+```
+
+That is it. The tag-triggered workflow runs the gates and publishes. Do not
+run `npm publish`. The guard refuses it, correctly: publishing is irreversible
+and outward-facing.
+
+**Before that, bump and merge normally:** `VERSION` and `package.json` must
+agree, `CHANGELOG.md` gets an entry, and `scripts/check-docs` must pass. A
+release PR is a PR like any other.
+
+### What does not work, and why
+
+Do not spend time re-deriving these. Every one was confirmed by hitting it:
+
+- **`npm publish` from a laptop** requires a typed 6-digit code, in every 2FA
+  mode, including `auth-only`. npm has closed this path.
+- **`npm trust`** also requires a typed code, and unlike `npm profile` it has
+  **no browser fallback**. It fails with `EOTP` whether or not a TTY is
+  attached. A passkey cannot satisfy it.
+- **A package that does not exist yet cannot be given a trusted publisher**
+  from the website, because the settings page is per-package.
+- Therefore, for a NEW package name, the only door open is a token in CI.
+
+### Error messages that lie
+
+- `404 Not Found` on `PUT` during publish means **the login was rejected**,
+  not that the package is missing. Check `npm profile get` first.
+- `EOTP` on a token publish means the account is set to `auth-and-writes`.
+  A token needs `auth-only`.
+- A required status check stuck as *expected* usually means GitHub did not
+  deliver the `pull_request` event. `workflow_dispatch` runs do not satisfy
+  branch protection; a freshly opened PR does.
+
+### Finishing the migration to trusted publishing
+
+Once the package exists on npm, do this and stop using a token:
+
+1. npmjs.com → the package → Settings → Trusted Publisher → GitHub Actions.
+   Organization or user `sid-thephysicskid`, repository `onbelay`, workflow
+   `publish.yml`, environment empty, tick `npm publish`. Save. A passkey works
+   here; this is the browser, not the CLI.
+2. In `.github/workflows/publish.yml`: delete the `NODE_AUTH_TOKEN` env block
+   and the `registry-url` line. They live and die together, because
+   `registry-url` is what writes the `.npmrc` the token needs and it is also
+   what stops OIDC working.
+3. Invert the three assertions in
+   `tests/test_release_metadata.py::test_npm_publish_uses_oidc_and_a_public_release`.
+4. `gh secret delete NPM_TOKEN`, and revoke the token on npmjs.com.
+5. Restore two-factor to `auth-and-writes`. Trusted publishing is exempt from
+   2FA by design: the identity it proves is the workflow file, not a person.
