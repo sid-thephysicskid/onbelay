@@ -1207,6 +1207,38 @@ rm -f "$H/.claude/settings.json.agent-config-deny.json"
 out="$(HOME="$H" bash "$S/repo/uninstall.sh" 2>&1)"
 chk "uninstall says which rules it left" "$(grep -c 'ownership record is missing' <<<"$out")" "1"
 
+echo "== 79. an upgrade adopts extras that are already installed =="
+# Deriving INSTALL_OPERATOR from the profile alone meant a plain `install`
+# ignored extras already on the machine, leaving their eight links bound to the
+# PREVIOUS install root: not migrated, and not removed either. Nothing reported
+# it while that root still existed, because the links still resolved.
+cp -R "$REPO_SRC" "$S/oldrepo"; rm -rf "$S/oldrepo/.git"
+H="$S/h79"; mkdir -p "$H"
+HOME="$H" bash "$S/oldrepo/install.sh" --extras >/dev/null 2>&1
+chk "extras installed from the old root" \
+  "$(find "$H/.claude/skills" -maxdepth 1 -mindepth 1 \
+     \( -name research -o -name wizard -o -name handoff \) | wc -l | tr -d ' ')" "3"
+# The upgrade, WITHOUT --extras. This is the npx `install` path.
+HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
+chk "no link is left bound to the old root" \
+  "$(find "$H" -maxdepth 4 -type l -lname "$S/oldrepo/*" 2>/dev/null | wc -l | tr -d ' ')" "0"
+chk "an extra now resolves to the new root" \
+  "$(readlink "$H/.claude/skills/wizard")" "$S/repo/operator-skills/wizard/"
+chk "the codex mirror moved too" \
+  "$(readlink "$H/.codex/skills/wizard")" "$S/repo/operator-skills/wizard/"
+chk "output styles moved too" \
+  "$(readlink "$H/.claude/output-styles/eli5.md")" "$S/repo/output-styles/eli5.md"
+chk "no dangling links anywhere" \
+  "$(find "$H/.claude" "$H/.codex" -maxdepth 3 -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')" "0"
+
+# The paired case: adoption must NOT turn a guard-only install into a skills
+# install just because skills happen to be present.
+H="$S/h79b"; mkdir -p "$H"
+HOME="$H" bash "$S/oldrepo/install.sh" --extras >/dev/null 2>&1
+HOME="$H" bash "$S/repo/install.sh" guard >/dev/null 2>&1
+chk "the guard profile still installs no skills" \
+  "$(readlink "$H/.claude/skills/wizard")" "$S/oldrepo/operator-skills/wizard/"
+
 echo
 echo "PASS $pass  FAIL $fail"
 [[ $fail -eq 0 ]] || exit 1
