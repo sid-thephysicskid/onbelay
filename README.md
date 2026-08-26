@@ -84,11 +84,11 @@ It covers destructive Git, filesystem deletes, credential and key reads, product
 
 Two things to be straight about, because they decide whether this is useful to you:
 
-**It's a safety net, not a security boundary.** It stops a careless agent, not a determined one. Hide a command in a variable or an inline program and it goes through. That's a deliberate line, and [every gap is written down](evals/redteam-candidates.txt) with the reason it was accepted. There are 58 of them against 98 red-team candidates, and I would rather you read that number here than discover it yourself. Keep your branch protection, least-privilege access, backups, and review.
+**It's a safety net, not a security boundary.** It stops a careless agent, not a determined one. Hide a command in a variable or an inline program and it goes through. That's a deliberate line, and [every gap is written down](evals/redteam-candidates.txt) with the reason it was accepted. There are 64 of them against 104 red-team candidates, and I would rather you read that number here than discover it yourself. Keep your branch protection, least-privilege access, backups, and review.
 
 **It fails open.** If a rule crashes, your agent keeps working and the failure gets logged where `doctor` will show it. A guard that bricks your CLI is worse than no guard.
 
-Behind that: 1,878 test cases, of which 702 exist to prove the guard does *not* fire, plus 285 ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
+Behind that: 1,965 test cases, of which 745 exist to prove the guard does *not* fire, plus 285 ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
 
 ## The skills, and why each one exists
 
