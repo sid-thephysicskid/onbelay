@@ -18,6 +18,7 @@ stale silently, and a stale note about a fail-open is worse than none.
 """
 import os
 import re
+import sys
 import shlex
 
 
@@ -39,6 +40,7 @@ from guard_paths import check_control_path, check_guard_mutation, check_path  # 
 # Private names the orchestrator itself calls; star imports skip these.
 from guard_parse import (  # noqa: F401
     _BRACE_BUDGET,
+    interpreter_heredoc_body,
     _cap_segments,
     _piped_segment_indices,
     _shell_fed_indices,
@@ -57,11 +59,19 @@ import guard_tools          # noqa: E402
 # The union, and the only MIDDLE_SIGNALS the facade exports. A rule module that
 # gains a rule and declares its signal is covered here with no edit to this
 # file, which is the property the parser's hand-copied version could not hold.
-MIDDLE_SIGNALS = re.compile("|".join(
-    guard_git.MIDDLE_SIGNALS
-    + guard_secrets.MIDDLE_SIGNALS
-    + guard_db.MIDDLE_SIGNALS
-    + guard_tools.MIDDLE_SIGNALS), re.I)
+# DISCOVERED, not hand-listed. The literal `+` chain that used to be here had
+# five of the six rule modules in it, and the missing one was guard_paths: the
+# module protecting the guard's own files. That is the failure mode a hand-kept
+# union has, and writing "keep this in sync" above it is what the four
+# spellings of RUNNER_NAMES already proved does not work. A module that gains
+# MIDDLE_SIGNALS is now covered with no edit to this file.
+_SIGNAL_SOURCES = tuple(
+    m for name, m in sorted(sys.modules.items())
+    if name.startswith("guard_") and name != __name__
+    and hasattr(m, "MIDDLE_SIGNALS")
+    and isinstance(getattr(m, "MIDDLE_SIGNALS"), tuple))
+MIDDLE_SIGNALS = re.compile(
+    "|".join(sum((tuple(m.MIDDLE_SIGNALS) for m in _SIGNAL_SOURCES), ())), re.I)
 
 
 def _oversize_verdict(cmd):
@@ -537,6 +547,23 @@ def check_command(cmd, cwd=None):
     cmd, oversize = _oversize_verdict(cmd)
     if oversize:
         return oversize
+
+    # WHOLE-command, before segmentation. `python3 - <<'PY' ... PY` runs its
+    # body exactly as `python3 -c '...'` does, but segments() splits that body
+    # into one segment per line, so the per-segment inline-code rule was handed
+    # a line at a time and never saw a program. The delete half of that rule
+    # was therefore off for every heredoc spelling: shutil.rmtree('/var/www')
+    # blocked as `-c` and ran as a heredoc. The credential half looked fine
+    # only because the path scanner is text-shaped and finds a path anywhere.
+    #
+    # This also makes true a sentence in evals/redteam-candidates.txt that was
+    # half false: that a heredoc body is re-entered and still refuses system
+    # deletes and credential reads.
+    body = interpreter_heredoc_body(cmd)
+    if body:
+        hit = check_inline_code("", code=body)
+        if hit:
+            return hit
 
     # `$(pwd)` and the backtick form mean exactly `$PWD`, but `(` and `)` are
     # segment splitters, so `rm -rf $(pwd)` arrived as `rm -rf $` plus `pwd` and
