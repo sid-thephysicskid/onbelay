@@ -2,7 +2,7 @@
 
 ## Safety guardrails
 
-When Agent Guard is installed, its PreToolUse hooks block common high-impact mistakes before execution. The written rules still apply when the hooks are absent. They are a safety net for a careless agent, not a security boundary. Do not work around a block or ask the user to disable it.
+When the On Belay guard is installed, its PreToolUse hooks block common high-impact mistakes before execution. The written rules still apply when the hooks are absent. They are a safety net for a careless agent, not a security boundary. Do not work around a block or ask the user to disable it.
 
 - Never commit or push on `main`, `master`, `prod`, `production`, `trunk`, or `release`. Branch and use a pull request. Merge, revert, cherry-pick, and `am` can create commits too. Abort, skip, and quit forms are safe exits. A continue form may write a commit, so check the target branch yourself before continuing an in-progress operation.
 - Never force-push, use `reset --hard`, run `clean -f`, discard the whole working tree, or force-delete a branch. The one exception is `git push --force-with-lease=<branch>:<sha>` on your own open PR branch after a rebase. Use the current branch and a full pre-fetch commit SHA. It is refused on protected branches.

@@ -1,4 +1,4 @@
-# onbelay
+# On Belay
 
 **Guardrails for coding agents, plus the workflow skills to keep them pointed at the right problem.**
 
@@ -88,7 +88,7 @@ Two things to be straight about, because they decide whether this is useful to y
 
 **It fails open.** If a rule crashes, your agent keeps working and the failure gets logged where `doctor` will show it. A guard that bricks your CLI is worse than no guard.
 
-Behind that: 1,965 test cases, of which 745 exist to prove the guard does *not* fire, plus 285 ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
+Behind that: 1,965 test cases. 759 of them exist to prove the guard does *not* fire, and 285 are ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
 
 ## The skills, and why each one exists
 
