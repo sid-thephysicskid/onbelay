@@ -1,6 +1,6 @@
 {
   "name": "@sid-thephysicskid/agent-config",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Guardrails for coding agents, plus the workflow skills to keep them pointed at the right problem.",
   "license": "MIT",
   "author": "Sid Abhinav",

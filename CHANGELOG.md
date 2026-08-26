@@ -2,6 +2,92 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-26
+
+Five independent audits, then the fixes. Every finding below was reproduced
+against the published 0.3.0 payload before it was touched, and two of them were
+found by this repo's own corpus catching a change to itself.
+
+### Fixed
+
+The guard did not protect its own installed files. The npm install copies the
+payload to `~/.local/share/agent-config/` and leaves `~/.claude/hooks` as
+symlinks into it, and only the symlink location was guarded, so
+`rm -rf ~/.local/share/agent-config` removed the whole guard and was allowed.
+The hook shim exits 0 when its file is missing, so the result was a machine
+with no guard and nothing saying so.
+
+`AGENT_GUARD_PROTECTED_BRANCHES` did not reach `branch -f`, `checkout -B` or
+`update-ref`, which carried a hand-typed copy of the default list. It was wrong
+in both directions: a team on `develop` got no protection from those three, and
+an empty value, which the README says turns the rules off, still refused moving
+`main`.
+
+Naming a config FILE switched off the production-deploy rules. `fly.toml`,
+`wrangler.toml` and `serverless.yml` are the default names those tools ship
+with, so the ordinary invocation was exempt, and an explicit `--prod` was
+defeated by a config file sitting beside it. `--config` and `--profile` now
+need a positive test, and an explicit production flag is not open to
+reinterpretation.
+
+An interpreter heredoc runs its body exactly as `-c` does, but `segments()`
+splits that body one line per segment, so the inline-program rule never saw a
+program and its delete half was off for every heredoc spelling.
+
+kubectl short resource names, and one extra flag on a wrapper walking past the
+interpreter-name scan.
+
+`MIDDLE_SIGNALS` was a hand-written union missing `guard_paths`, so a write to
+the guard's own files buried past the 32KB analysis cap fell straight through.
+It is discovered now rather than listed.
+
+### Fixed: refusals of ordinary work
+
+A sweep over 1,042 safe commands measured a 2.6% over-block rate. Seven root
+causes, all daily commands:
+
+- Naming a secret file is not disclosing it. Deleting a local dotenv, opening
+  one in an editor, `direnv allow`, and the `--cached` removal that is the
+  standard remediation for a committed secret were all refused. `git add`
+  stays refused, and so do diff, show and log -p, which print contents.
+- A package runner is not the command: one `npx` defeated every exemption in
+  `check_secrets_cmd` at once.
+- A git config line with nothing after the key is a read, and `--unset`
+  removes the hazard. Both were refused while `--list` was allowed.
+- `--help` and `git help <topic>` are documentation. `check_tools` has always
+  known that; `check_git` did not.
+- `git rm` is a git subcommand, not coreutils `rm`.
+- A trailing glob with a literal left after the metacharacters selects a
+  subset, so a scoped cleanup was read as the whole directory.
+- The shape every new project starts with, and the one `bootstrap` emits:
+  mkdir, cd into it, git init, first commit.
+- A redirect is not a refspec, so `2>&1` refused the one force-push this
+  suite deliberately allows.
+
+### Fixed: install and CLI
+
+Upgrading over an existing install left the extras bound to the previous
+payload root, neither migrated nor removed.
+
+`doctor` checked the profile it assumed rather than the one installed, so a
+guard-only machine reported 30 problems with nothing wrong, and pointed at
+`./install.sh`, a file an npx user does not have. `doctor guard --extras`
+silently ignored both the conflict and the flag.
+
+### Changed
+
+`npm test` ran 8 assertions out of 2,048; it runs the gates now. The LICENSE
+appendix that stopped GitHub identifying the licence moved to the README, where
+people read it. Issue templates, one per direction the guard can be wrong in.
+A docs-only change no longer runs the parser suite to prove prose is prose.
+
+### Known gaps
+
+64 accepted, out of 104 red-team candidates, each with a written reason in
+`evals/redteam-candidates.txt`. Six were added this release rather than closed,
+including two write-then-run spellings where two functions answer one question
+and disagree.
+
 ## [0.3.0] - 2026-08-21
 
 Bugs, and a repository 39% smaller: 29,367 tracked lines to 17831, 236 files
