@@ -22,6 +22,19 @@ import re
 from guard_parse import normalize_path, tokens
 from guard_secrets import READ_SAFE_SECRET, _is_secret_path
 
+# Worth finding in the middle of an oversized command line. Every other rule
+# module exports one of these and guard_paths did not, so a control-path write
+# buried past the 32KB analysis cap fell straight through: `rm` of a guard hook
+# blocked on its own and was allowed with 40KB of padding in front of it. The
+# fail-closed timeout path in guard_adapter consults the same union, so the
+# gap also turned a slow-input attack on the guard's own files from
+# fail-closed into fail-open.
+MIDDLE_SIGNALS = (
+    r"\.(claude|codex)/(hooks|settings\.json|settings\.local\.json|hooks\.json)",
+    r"\.git/(config|hooks|HEAD|refs)",
+    r"\.local/share/agent-config",
+)
+
 _GIT_CONTROL = re.compile(
     r"(^|/)\.git/(config|COMMIT_EDITMSG|HEAD|refs(?:/|$)|hooks(?:/|$))")
 
@@ -37,6 +50,22 @@ GUARD_OWN_FILES = re.compile(
     r"|hooks\.json$)")
 
 
+# The npm install, which the README recommends, COPIES the payload to
+# ~/.local/share/agent-config/<version>/ and leaves ~/.claude/hooks/*.py as
+# symlinks into it. Protecting only the symlink location protected only the
+# spelling nobody uses: `rm ~/.claude/hooks/guard_rules.py` was refused while
+# `rm -rf ~/.local/share/agent-config` removed the whole guard and was
+# allowed. An agent does not have to be clever to land on the real path;
+# `readlink -f` is an ordinary command and every editor resolves symlinks on
+# its own. And because the hook shim exits 0 when its file is missing, the
+# result is a machine with no guard and no message saying so.
+#
+# Hardcoded rather than read from XDG_DATA_HOME because bin/agent-config.js:44
+# and install.sh:313 both hardcode it too. If that ever becomes configurable,
+# this has to move with it.
+PAYLOAD_ROOT = "~/.local/share/agent-config"
+
+
 def _is_guard_control_path(path):
     if GUARD_OWN_FILES.search(path):
         return True
@@ -47,6 +76,10 @@ def _is_guard_control_path(path):
          ("hooks", "settings.json", "settings.local.json", "CLAUDE.md")),
         ("CODEX_HOME", "~/.codex", ("hooks", "hooks.json", "AGENTS.md")),
     )
+    payload = normalize_path(PAYLOAD_ROOT)
+    expanded_payload = normalize_path(path)
+    if expanded_payload == payload or expanded_payload.startswith(payload + "/"):
+        return True
     for variable, default, managed in roots:
         root = os.environ.get(variable) or default
         expanded = path.replace("${%s}" % variable, root).replace("$%s" % variable, root)

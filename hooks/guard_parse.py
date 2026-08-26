@@ -93,7 +93,13 @@ _SHELL_HEAD = re.compile(
 # xargs in place costs nothing and keeps `xargs rm -rf` detectable.
 WRAPPERS = {"sudo", "env", "command", "builtin", "exec", "nohup", "time", "nice",
             "eval", "if", "while", "until", "then", "do", "else", "elif",
-            "fi", "done", "!"}
+            "fi", "done", "!",
+            # Same shape as nohup and nice: they run what they are handed.
+            # `timeout` is the one people actually type, and its `-s`/`-k`
+            # take VALUES, which is why _WRAPPER_VALUE_FLAGS is per-wrapper
+            # rather than shared.
+            "timeout", "stdbuf", "setsid", "flock", "doas", "torsocks",
+            "chrt", "ionice", "unbuffer"}
 
 # Flags a wrapper consumes a VALUE for, PER WRAPPER. Not one shared set: `-n`
 # is an adjustment to nice and means non-interactive to sudo, so a shared set
@@ -103,6 +109,13 @@ _WRAPPER_VALUE_FLAGS = {
     "sudo": {"-u", "-g", "-p", "-C", "-r", "-t", "-U", "--user", "--group"},
     "nice": {"-n", "--adjustment"},
     "env": {"-u", "-C", "--chdir", "--unset"},
+    # `timeout -s TERM 30 cmd`: -s and -k each consume a value, and the
+    # DURATION is a bare positional the stripper stops on, which is fine.
+    "timeout": {"-s", "-k", "--signal", "--kill-after"},
+    "stdbuf": {"-i", "-o", "-e", "--input", "--output", "--error"},
+    "flock": {"-w", "--wait", "--timeout", "-E", "--conflict-exit-code"},
+    "ionice": {"-c", "-n", "--class", "--classdata"},
+    "chrt": {"-p", "--pid"},
 }
 _NEXT_TOKEN = re.compile(r"\s*(?P<tok>\S+)")
 
@@ -301,11 +314,49 @@ INLINE_CODE = re.compile(
     r"(?P<code>.*?)(?P=q)", re.S)
 
 
+def interpreter_heredoc_body(seg):
+    """The body of a heredoc handed to an INTERPRETER, or ''.
+
+    `python3 - <<'PY' ... PY` runs its body exactly as `python3 -c '...'` does,
+    but INLINE_CODE only matches the `-c`/`-e` shape, so check_inline_code was
+    handed '' and never ran. The delete half of that rule was therefore off for
+    every heredoc spelling: `shutil.rmtree('/var/www')` blocked as `-c` and ran
+    as a heredoc. The credential half looked fine only because the path scanner
+    is text-shaped and finds the path wherever it sits.
+
+    That gap contradicted the reassurance written in the accepted-gaps file,
+    which told readers a heredoc body is re-entered and still refuses system
+    deletes and credential reads. Half of that was true.
+
+    blank_inert_heredocs already decides which bodies are executed and leaves
+    exactly those intact, so this asks the same question the same way rather
+    than inventing a second answer to it.
+    """
+    if "<<" not in seg:
+        return ""
+    lines, out, i = seg.replace("\\\n", " ").split("\n"), [], 0
+    while i < len(lines):
+        m = HEREDOC_OPEN.search(lines[i])
+        if not m or not INTERPRETER.search(lines[i]):
+            i += 1
+            continue
+        tag, j = m.group("tag"), i + 1
+        while j < len(lines) and lines[j].strip() != tag:
+            j += 1
+        out.append("\n".join(lines[i + 1:j]))
+        i = j + 1
+    return "\n".join(out)
+
+
 def inline_code(seg):
     """The program inside `python3 -c '...'`, or ''.
 
     One shlex token holding a whole program. The rules judged the token as a
     filename, which it is not.
+
+    Deliberately NOT the heredoc spelling. segments() splits a heredoc body
+    into one segment per line, so a per-segment caller can never see it whole;
+    check_command runs interpreter_heredoc_body over the WHOLE command instead.
     """
     m = INLINE_CODE.match(seg)
     return m.group("code") if m else ""
@@ -543,6 +594,16 @@ SPLITTER_HINT = re.compile(r"[;&|\n]")
 # built out of it.
 
 
+# How far in to look for the interpreter name. It was 4, with no comment, and
+# one extra flag on a wrapper was enough to walk past it: `timeout 5 bash -c
+# 'rm -rf /'` blocked and `timeout -s 9 5 bash -c 'rm -rf /'` did not, because
+# `-s 9` pushed `bash` to index 4. `timeout -k 10 -s TERM 30 cmd` is longer
+# still. Widening this is cheap and safe: finding the name proves nothing on
+# its own, the flag walk below still has to find a real `-c`/`-e`, and the
+# wrappers themselves are stripped before this in the common case.
+_RUNNER_SCAN = 8
+
+
 def _dash_c_payload(toks):
     r"""The command an interpreter was handed via -c or -e, and whether it is a shell.
 
@@ -563,7 +624,7 @@ def _dash_c_payload(toks):
       in any CI script, was never unwrapped at all.
     """
     start = None
-    for i, tok in enumerate(toks[:4]):
+    for i, tok in enumerate(toks[:_RUNNER_SCAN]):
         if os.path.basename(tok.strip("'\"")) in SHELL_NAMES | INTERPRETER_NAMES:
             start = i
             break

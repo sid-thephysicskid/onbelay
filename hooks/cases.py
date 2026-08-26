@@ -230,6 +230,84 @@ CMD_CASES += [
     ('cd nonexistent-dir && git commit -m x', MAIN, True),
 ]
 
+
+# Coverage holes found by an audit of ~450 spellings against the claims in
+# docs/guard-coverage.md. Each pair is the hole and the thing that must stay
+# refused alongside it.
+CMD_CASES += [
+    # The npm install COPIES the payload here and leaves ~/.claude/hooks as
+    # symlinks into it, so protecting only the symlink protected only the
+    # spelling nobody uses. One allowed command removed the whole guard.
+    ('rm -rf ~/.local/share/agent-config', MAIN, True),
+    ('rm ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py', MAIN, True),
+    ("sed -i '' 's/x/y/' ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py", MAIN, True),
+    ('cp /tmp/fake.py ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py', MAIN, True),
+    ('chmod 000 ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py', MAIN, True),
+
+    # A config FILE is not an environment. These are the DEFAULT filenames the
+    # tools ship with, so a negative test exempted the ordinary invocation.
+    ('fly deploy --config fly.toml', FEAT, True, 'Fly.io deploy'),
+    ('wrangler deploy --config wrangler.toml', FEAT, True),
+    ('serverless deploy --config serverless.yml', FEAT, True),
+    # ...and an explicit production flag is not open to reinterpretation.
+    ('netlify deploy --prod --config netlify.toml', FEAT, True),
+    ('vercel --prod --env NODE_ENV=production', FEAT, True),
+    ('netlify deploy --build --prod', FEAT, True),
+    # ...while a config that really does name a non-production environment,
+    # and the read-only subcommands, stay allowed.
+    ('fly deploy --config staging.toml', FEAT, False),
+    ('eb deploy --profile dev', FEAT, False),
+    ('vercel logs my-app --prod', FEAT, False),
+    ('vercel list --prod', FEAT, False),
+
+    # Short resource names are what people type. `ns` was already covered, so
+    # the intent existed and was half-done.
+    ('kubectl delete deploy api -n prod', FEAT, True),
+    ('kubectl delete deploy/api -n prod', FEAT, True),
+    ('kubectl delete sts db', FEAT, True),
+    ('kubectl delete ds fluentd', FEAT, True),
+    ('kubectl delete deploy api --dry-run=client', FEAT, False),
+
+    # One extra flag on a wrapper walked past the interpreter-name scan.
+    ("timeout -s 9 5 bash -c 'rm -rf /'", FEAT, True),
+    ("timeout -k 10 -s TERM 30 bash -c 'rm -rf /'", FEAT, True),
+    ("stdbuf -oL bash -c 'rm -rf /'", FEAT, True),
+    # Closed as a side effect of adding flock to WRAPPERS. The corpus
+    # flagged it NEWLY CLOSED and refused to let it stay listed as an
+    # accepted gap, which is what that file exists to do.
+    ("flock -w 5 /tmp/l.lock bash -c 'rm -rf /'", FEAT, True),
+    ("timeout 5 npm test", FEAT, False),
+
+    # An interpreter heredoc runs its body exactly as -c does. segments()
+    # splits that body one line per segment, so the per-segment rule never saw
+    # a program and the delete half was off for every heredoc spelling.
+    ("python3 - <<'PY'\nimport shutil\nshutil.rmtree('/var/www')\nPY", FEAT, True),
+    ("node <<'JS'\nrequire('fs').rmSync('/etc/nginx',{recursive:true})\nJS", FEAT, True),
+    ("cat <<'PY' | python3\nimport shutil\nshutil.rmtree('/var/www')\nPY", FEAT, True),
+    # ...but WRITING a file that contains such a program is not running it.
+    ("cat > s.py <<'PY'\nimport shutil\nshutil.rmtree('/var/www')\nPY", FEAT, False),
+    ("python3 - <<'PY'\nprint(1 + 1)\nPY", FEAT, False),
+    ("python3 - <<'PY'\nimport shutil\nshutil.rmtree('build')\nPY", FEAT, False),
+]
+
+
+# A redirect is not a refspec. `2>&1`, `>/dev/null` and `> out.log` do not
+# start with `-`, so _safe_force_with_lease counted each as "some other ref"
+# and refused the one force-push this suite deliberately allows. Found by
+# running the exact command that rule's own fix line recommends, with
+# `2>&1 | tail` on the end, which is how anyone actually types it. A guard
+# whose remediation does not unblock you is the one people switch off.
+CMD_CASES += [
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x 2>&1', FEAT, False),
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x >/dev/null', FEAT, False),
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x > out.log', FEAT, False),
+    ('git push --force-with-lease=feature/x:0123456789abcdef0123456789abcdef01234567 origin feature/x 2>&1 | tail -2', FEAT, False),
+    # ...and a redirect must not launder a lease that was never safe.
+    ('git push --force-with-lease=other:0123456789abcdef0123456789abcdef01234567 origin feature/x 2>&1', FEAT, True),
+    ('git push --force-with-lease origin feature/x >/dev/null', FEAT, True),
+    ('git push --force-with-lease=main:0123456789abcdef0123456789abcdef01234567 origin main 2>&1', MAIN, True),
+]
+
 PATH_CASES = [
     ('/app/.env', False, True),
     ('/app/.env.production.local', False, True),

@@ -8,7 +8,7 @@ It is a safety net, not a security boundary, and it says so everywhere:
 [what it refuses](docs/guard-coverage.md) is generated from the rules,
 [what it deliberately does not catch](evals/redteam-candidates.txt) is written
 down with reasons, and it fails open rather than blocking your agent when it
-breaks. 1,927 test cases, every rule pinned in both directions, and a check
+breaks. 1,965 test cases, every rule pinned in both directions, and a check
 that proves the guard still decides on your machine rather than that it is
 merely installed.
 

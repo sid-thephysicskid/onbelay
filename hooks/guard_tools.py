@@ -259,7 +259,14 @@ DESTRUCTIVE_TOOLS = (
     # `--dry-run=client|server` really is a no-op for kubectl. `--dry-run=none`
     # is NOT: it is the default and it deletes.
     (r"\bkubectl" + _GLOBAL_FLAGS + r"\s+delete" + _GLOBAL_FLAGS +
-     r"\s+(namespaces?|ns|deployments?|statefulsets?|pvcs?)\b"
+     # Short names, which are what people actually type. `ns` was already
+     # here, so the intent to cover abbreviations existed and was half-done:
+     # `kubectl delete deployments api` blocked while `kubectl delete deploy
+     # api` did not, and nobody types the long one. `deploy/api` is the
+     # slash form the same command accepts.
+     r"\s+(namespaces?|ns|deployments?|deploy|statefulsets?|sts"
+     r"|pvcs?|persistentvolumeclaims?|daemonsets?|ds|replicasets?|rs)"
+     r"(\b|/)"
      r"(?![^\n]*--dry-run=(client|server)\b)",
      "deleting a Kubernetes resource",
      "scale to zero first, or do it deliberately outside the agent"),
@@ -304,14 +311,18 @@ INLINE_DESTRUCTIVE = re.compile(
     r"|FileUtils\s*\.\s*rm_rf|Dir\s*\.\s*rmdir)", re.I)
 
 
-def check_inline_code(seg):
+def check_inline_code(seg, code=None):
     """Destructive or secret-reading calls inside an inline program.
 
     Two questions only: does it delete something at a dangerous root, and does
     it open a live credential. Anything wider produces false positives on
     ordinary scripting, which is the whole reason this is not check_command.
     """
-    code = inline_code(seg)
+    # `code` lets a caller hand the program in directly. check_command needs
+    # that for a heredoc body: re-wrapping one as `python3 -c <quoted>` and
+    # re-parsing it truncated at the body's first quote character, which any
+    # real program has.
+    code = inline_code(seg) if code is None else code
     if not code:
         return None
     literals = re.findall(r"['\"]([^'\"]{1,300})['\"]", code)
@@ -358,7 +369,14 @@ _DEPLOY_FIX = ("merge the PR and let the pipeline deploy, or run this yourself")
 # subcommand is perfectly entitled to ask about. `vercel logs my-app --prod`
 # reads logs and changes nothing, and the floor suite caught it being blocked.
 # Naming the readers is narrower than trying to name every deploy spelling.
-_READ_ONLY_SUB = (r"(?![^\n]{0,40}\b(logs?|ls|list|inspect|env|whoami|domains|"
+# `(?<![-\w])`, not `\b`: a hyphen is a non-word character, so `\benv\b`
+# matched the `env` inside `--env` and the `build` inside `--build`. That read
+# a FLAG as a read-only SUBCOMMAND and switched the whole rule off, so
+# `vercel --prod --env NODE_ENV=production` was allowed with both `--prod` and
+# the literal word `production` sitting right there, and `netlify deploy
+# --build --prod` went through as well. A subcommand is never preceded by a
+# hyphen.
+_READ_ONLY_SUB = (r"(?![^\n]{0,40}(?<![-\w])(logs?|ls|list|inspect|env|whoami|domains|"
                   r"certs|alias|link|pull|build|status|open|sites|dev)\b)")
 
 PRODUCTION_DEPLOYS = (
@@ -392,13 +410,42 @@ PRODUCTION_DEPLOYS = (
 # flag that says otherwise was ignored, so the safe spelling was refused
 # alongside the dangerous one. Anything naming prod/production/live is not
 # exempt, so `--env production` still blocks.
+# `config` and `profile` are deliberately NOT here. They name a FILE and a
+# credential profile, not an environment, and treating them as one meant the
+# default invocation of half these tools was exempt: `fly deploy --config
+# fly.toml` uses Fly's own default filename, and `wrangler deploy --config
+# wrangler.toml` and `serverless deploy --config serverless.yml` are the same
+# shape. Worse, an explicit `--prod` was defeated by naming a config file
+# beside it. The exemption was only ever tested against a filename that
+# happened to contain the word `staging`.
 NON_PRODUCTION = re.compile(
-    r"--(env|environment|stage|config|profile)[=\s]+(?!\S*(prod|production|live))\S+",
+    r"--(env|environment|stage)[=\s]+(?!\S*(prod|production|live))\S+",
     re.I)
+
+# `--config` and `--profile` get a POSITIVE test instead. Naming an
+# environment is what --env is FOR, so "does not say prod" is fair evidence
+# there. A config file is just a file: `fly.toml`, `wrangler.toml` and
+# `serverless.yml` are the DEFAULT names those tools ship with, and under a
+# negative test every one of them read as "not production" and exempted the
+# tool's ordinary invocation. The value now has to name a non-production
+# environment for the exemption to apply, which keeps
+# `fly deploy --config staging.toml` allowed and stops `--config fly.toml`.
+NON_PROD_NAMED = re.compile(
+    r"--(config|profile)[=\s]+\S*"
+    r"(staging|stage|dev|develop|test|preview|sandbox|local|qa|ephemeral)",
+    re.I)
+
+# An explicit production flag is not open to reinterpretation. Both mechanisms
+# above are evidence ABOUT an unqualified command; neither is a reason to
+# ignore the word the user typed. `netlify deploy --prod --config netlify.toml`
+# and `vercel --prod --env NODE_ENV=production` were both allowed, each with
+# `--prod` sitting right there in the command.
+EXPLICIT_PROD = re.compile(r"--prod(uction)?\b", re.I)
 
 
 def check_deploy(seg):
-    if NON_PRODUCTION.search(seg):
+    if not EXPLICIT_PROD.search(seg) and (
+            NON_PRODUCTION.search(seg) or NON_PROD_NAMED.search(seg)):
         return None
     for pat, what in PRODUCTION_DEPLOYS:
         if re.search(pat, seg, re.I):

@@ -39,6 +39,25 @@ PROTECTED_BRANCHES = (
     {b.strip() for b in _override.split(",") if b.strip()}
     if _override is not None else set(_DEFAULT_PROTECTED))
 
+# The three ref-MOVING rules below need the protected set as a regex
+# alternation. They used to carry a hand-typed copy of _DEFAULT_PROTECTED
+# instead, which meant AGENT_GUARD_PROTECTED_BRANCHES did not reach them and
+# was wrong in both directions at once: a team on `develop` got the protection
+# they had configured for `commit` and `push` and none of it for `branch -f`,
+# `checkout -B` or `update-ref`, and a user who set the variable EMPTY to turn
+# the rules off, exactly as the README says they may, still could not move
+# `main`. The banner install.sh prints to confirm the setting took effect was
+# telling them something untrue.
+#
+# Longest first, so no short name shadows a longer one inside the group. The
+# same reason _alt() sorts in guard_parse.
+# `or "(?!)"`: an EMPTY protected set must make these rows match nothing. An
+# empty alternation is `(?:)`, which matches the empty string, so the rules
+# would have fired on every branch name at the exact moment the user asked for
+# them to be off. `(?!)` is a negative lookahead on empty and can never match.
+_PROT_ALT = "|".join(sorted((re.escape(b) for b in PROTECTED_BRANCHES),
+                            key=len, reverse=True)) or "(?!)"
+
 # Shapes this module blocks, spelled loosely enough to be recognised in text
 # that is never parsed into segments: the discarded middle of an oversized
 # command. guard_rules concatenates one of these tuples from each rule module.
@@ -113,6 +132,12 @@ def _args_after(seg, *verbs):
     return None if kw is None else toks[toks.index(kw) + 1:]
 
 
+# `>`, `>>`, `<`, `2>&1`, `&>file`, and the numbered forms. Anchored, because
+# a branch name may legitimately contain none of these but an argument like
+# `origin` must not be mistaken for one.
+_REDIRECT = re.compile(r"^\d*(>>?|<<?|>&|&>)")
+
+
 def _safe_force_with_lease(seg, branch):
     """True only for the one history rewrite this suite deliberately allows.
 
@@ -137,8 +162,24 @@ def _safe_force_with_lease(seg, branch):
     # user who followed this rule's own fix line, then appended `origin
     # <branch>` from muscle memory, got the identical refusal again. A guard
     # whose remediation does not unblock you is the one people switch off.
-    rest = [a for i, a in enumerate(args)
-            if i != lease[0] and not a.startswith("-")]
+    # Redirects are not refspecs. `2>&1`, `>/dev/null` and `> out.log` do not
+    # start with `-`, so each counted as "some other ref" and refused the one
+    # force-push this suite deliberately allows. Found by running the exact
+    # command this rule's own fix line recommends, with `2>&1 | tail` on the
+    # end, which is how anyone actually types it.
+    rest, skip = [], False
+    for i, a in enumerate(args):
+        if i == lease[0]:
+            continue
+        if skip:
+            skip = False                     # the target of a bare `>`
+            continue
+        if _REDIRECT.match(a):
+            skip = a in (">", ">>", "<", "&>", "2>")   # operator and target split
+            continue
+        if a.startswith("-"):
+            continue
+        rest.append(a)
     for i, arg in enumerate(rest):
         if i == 0 and ":" not in arg:
             continue                                   # the remote
@@ -281,13 +322,13 @@ DESTRUCTIVE_GIT = (
     # through, from any branch, including the one everyone else pulls.
     # These are not exotic. An agent reaching for `checkout -B` to "reset main
     # to origin" is an ordinary mistake, which is exactly this guard's remit.
-    (r"\bbranch\s+(-\w*f\b|--force\b)[^\n]{0,40}\b(main|master|trunk|release|production|prod)\b",
+    (r"\bbranch\s+(-\w*f\b|--force\b)[^\n]{0,40}\b(?:" + _PROT_ALT + r")\b",
      "git branch -f on a protected branch (moves it under everyone else)",
      "branch somewhere else, or open a PR"),
-    (r"\b(checkout|switch)\s+(-\w*[BC]\b|--force-create\b)\s+(main|master|trunk|release|production|prod)\b",
+    (r"\b(checkout|switch)\s+(-\w*[BC]\b|--force-create\b)\s+(?:" + _PROT_ALT + r")\b",
      "git checkout -B on a protected branch (resets it to wherever you are)",
      "git checkout <branch> without -B, or use a new branch name"),
-    (r"\bupdate-ref\s+(--\S+\s+)*refs/heads/(main|master|trunk|release|production|prod)\b",
+    (r"\bupdate-ref\s+(--\S+\s+)*refs/heads/(?:" + _PROT_ALT + r")\b",
      "moving a protected branch ref directly",
      "open a PR; a ref write bypasses every review this repo has"),
     (r"\bsymbolic-ref\s+(?!--\S)\S+\s+refs/",
