@@ -1,0 +1,60 @@
+name: The guard refused ordinary work
+description: A command that is safe was blocked. This counts as a defect here.
+title: "refused: <the command, shortened>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A guard that cries wolf gets switched off, so a refusal of ordinary work
+        is treated as a defect rather than the cost of doing business.
+
+        Every rule carries a paired case for the nearest legitimate command it
+        must not refuse, so a false positive is a missing case and gets handled
+        as one.
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command
+      description: >
+        Verbatim, including quoting. Quoting is load-bearing: a mis-typed quote
+        changes what the shell would actually run, and has produced bogus
+        reports before.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: What the block said
+      description: The BLOCKED line and the "Do this instead" line under it.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: cwd
+    attributes:
+      label: Working directory
+      description: >
+        A repo path, or "not a repo". The branch rules judge against the
+        directory the command would run in, so this changes the verdict.
+      placeholder: ~/code/myapp (on branch feature/x)
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Version and platform
+      description: "Output of: npx @sid-thephysicskid/agent-config@latest --version, plus your OS."
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expectation
+    attributes:
+      label: What should have happened, and why it is safe
+      description: >
+        One or two lines. If there is a spelling of the same command that IS
+        allowed, naming it usually points straight at the rule.
+    validations:
+      required: true

@@ -1001,7 +1001,18 @@ echo "== 60. every third-party licence travels with the repo =="
 for f in LICENSE THIRD-PARTY-NOTICES.md; do
   chk "$f present" "$([ -s "$S/repo/$f" ] && echo yes || echo no)" "yes"
 done
-chk "LICENSE points to third-party notices" "$(grep -c 'THIRD-PARTY-NOTICES.md' "$S/repo/LICENSE")" "1"
+# The pointer moved OUT of LICENSE and into the README. GitHub identifies a
+# licence with licensee, which scores the file against canonical text, and a
+# three-line appendix after "SOFTWARE." dropped this below the match
+# threshold: the repo sidebar read "Other" rather than "MIT". The obligation
+# the upstream MIT licence actually imposes is that its copyright and
+# permission notice travel with the work, which THIRD-PARTY-NOTICES.md does
+# and is asserted on the next line. The pointer is discoverability, so it
+# belongs in the file people read.
+chk "LICENSE is plain MIT, so GitHub can identify it" \
+  "$(grep -c 'THIRD-PARTY-NOTICES.md' "$S/repo/LICENSE")" "0"
+chk "the README points to third-party notices" \
+  "$([ "$(grep -c 'THIRD-PARTY-NOTICES.md' "$S/repo/README.md")" -ge 1 ] && echo yes || echo no)" "yes"
 chk "third-party notice names adapted architect skill" "$([ "$(grep -c 'architect' "$S/repo/THIRD-PARTY-NOTICES.md")" -ge 1 ] && echo yes || echo no)" "yes"
 
 echo "== 68. every malformed hook event aborts before mutation =="
