@@ -63,6 +63,41 @@ class NpxCliTest(unittest.TestCase):
             self.run_cli(home, "uninstall", "guard")
             self.assertFalse(os.path.lexists(hook))
 
+    def test_bare_doctor_checks_the_profile_that_is_installed(self):
+        """`doctor` with no argument, on a guard-only machine.
+
+        It used to default to standard/full and report 30 problems on a
+        machine with nothing wrong, exit 1, and tell the user to run
+        `./install.sh standard`: a file an npx user does not have, naming the
+        13 skills they had deliberately opted out of. The README gives
+        `install guard` its own section and offers exactly one way to check
+        it, so this was the check being broken for the install being
+        recommended to the most skeptical reader.
+        """
+        with tempfile.TemporaryDirectory() as home:
+            self.run_cli(home, "install", "guard")
+            result = self.run_cli(home, "doctor", check=False)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("all good", result.stdout)
+            # ...and the remediation it prints names the install method used.
+            broken = os.path.join(home, ".claude", "hooks", "guard-bash.py")
+            os.remove(broken)
+            result = self.run_cli(home, "doctor", check=False)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("npx @sid-thephysicskid/agent-config", result.stdout)
+            self.assertNotIn("./install.sh", result.stdout)
+
+    def test_doctor_rejects_extras_with_an_explicit_profile(self):
+        """parseProfile SHIFTS the profile off, so testing args[0] afterwards
+        tested the wrong token: `doctor guard --extras` ignored both the
+        conflict and the flag and checked `full`. install() has always used
+        `includes`; doctor did not."""
+        with tempfile.TemporaryDirectory() as home:
+            self.run_cli(home, "install", "guard")
+            result = self.run_cli(home, "doctor", "guard", "--extras", check=False)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("cannot be combined", result.stderr)
+
     def test_init_creates_one_project_contract_for_both_hosts(self):
         with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as project:
             self.run_cli(home, "init", cwd=project)

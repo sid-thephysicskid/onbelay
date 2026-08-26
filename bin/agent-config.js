@@ -192,16 +192,49 @@ function install(args) {
       { AGENT_CONFIG_COMPACT: "1" });
 }
 
+// What is actually on this machine, so `doctor` checks the install the user
+// HAS rather than the one it assumes they wanted. It defaulted to
+// standard/full, so a `install guard` machine, which the README gives its own
+// section and recommends to anyone who does not want the skills, got 30
+// fabricated errors and exit 1 with nothing wrong. The remediation it printed
+// was wrong twice over: `./install.sh` does not exist for an npx user, and
+// running it would install the 13 skills they deliberately opted out of.
+function detectProfile() {
+  const claudeRoot = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+  if (extrasInstalled()) return "full";
+  const linkedWorkflowSkill = ["ship", "tdd", "review"].some((name) => {
+    try {
+      return lstatSync(join(claudeRoot, "skills", name)).isSymbolicLink();
+    } catch {
+      return false;
+    }
+  });
+  if (linkedWorkflowSkill) return "standard";
+  try {
+    if (lstatSync(join(claudeRoot, "hooks", "guard-bash.py")).isSymbolicLink()) {
+      return "guard";
+    }
+  } catch {
+    // fall through
+  }
+  return "standard";
+}
+
 function doctor(args) {
   assertPlatform();
   const explicitProfile = args[0] && profiles.has(args[0]);
-  let profile = parseProfile(args, extrasInstalled() ? "full" : "standard");
-  if (args[0] === "--extras") {
-    profile = "full";
-    args.shift();
-  }
-  if (explicitProfile && args[0] === "--extras") {
+  // `args.includes`, not `args[0] ===`. parseProfile SHIFTS the profile off
+  // first, so testing position 0 afterwards tested the wrong token:
+  // `doctor guard --extras` silently ignored both the conflict and the flag
+  // and checked `full`. install() has always used includes; this did not.
+  const wantsExtras = args.includes("--extras");
+  if (explicitProfile && wantsExtras) {
     fail("--extras cannot be combined with an explicit profile");
+  }
+  let profile = parseProfile(args, detectProfile());
+  if (wantsExtras) {
+    profile = "full";
+    args = args.filter((arg) => arg !== "--extras");
   }
   if (args.length) {
     fail(`unknown doctor option: ${args[0]}`);
