@@ -27,26 +27,29 @@ class ReleaseMetadataTest(unittest.TestCase):
             workflow = fh.read()
         self.assertIn("release:\n    types: [published]", workflow)
         self.assertIn("id-token: write", workflow)
-        # NO registry-url, deliberately, and this assertion is inverted on
-        # purpose. It reads like the setting that points npm at the
-        # registry, and what it actually does is make setup-node write an
-        # .npmrc holding a PLACEHOLDER token, which npm then prefers over
-        # the OIDC exchange. Two releases failed with a 404 because of it.
+        # registry-url is REQUIRED while publishing by token: it is what makes
+        # setup-node write the .npmrc that consumes NODE_AUTH_TOKEN. It is
+        # also what breaks OIDC, so these two assertions flip together or
+        # neither does. Two releases failed with a 404 from having one
+        # without the other.
         # Assert against the YAML, not the prose. The comments in that file
         # name both traps, so a substring check matches its own explanation.
         directives = "\n".join(line for line in workflow.splitlines()
                                if not line.lstrip().startswith("#"))
-        self.assertNotIn("registry-url", directives)
+        self.assertIn("registry-url", directives)
         self.assertIn("GITHUB_REF_NAME", workflow)
         self.assertIn('require("./package.json").version', workflow)
         self.assertIn("./scripts/gates --full", workflow)
         self.assertIn("npm publish", workflow)
-        # NO token, deliberately. npm authenticates the job by OIDC against
-        # the trusted publisher on the package. The token that used to be
-        # here expired and took a release with it, and npm is restricting
-        # that kind of token anyway. A token reappearing is a regression.
-        self.assertNotIn("NODE_AUTH_TOKEN", directives)
-        self.assertNotIn("NPM_TOKEN", directives)
+        # A token, deliberately, and temporarily. Registering a trusted
+        # publisher needs a typed 6-digit code that this account cannot
+        # produce (passkey, and `npm trust` has no browser fallback), and a
+        # package that does not exist yet cannot be configured from the
+        # website. The token is what creates the package. When trusted
+        # publishing is configured, these three assertions invert again and
+        # the secret is deleted. RELEASING.md carries the sequence.
+        self.assertIn("NODE_AUTH_TOKEN", directives)
+        self.assertIn("NPM_TOKEN", directives)
         # The reminder to remove the secret goes with the secret. What is
         # pinned instead is the permission OIDC needs, because losing that
         # breaks publishing in a way whose error message says 404.

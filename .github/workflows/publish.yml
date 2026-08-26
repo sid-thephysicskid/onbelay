@@ -20,23 +20,33 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: "24"
-          # NO registry-url, deliberately. It reads like the setting that
-          # points npm at the registry. What it actually does is make
-          # setup-node write an .npmrc holding a placeholder token, which
-          # npm then prefers over the OIDC exchange. That is a 404.
+          # registry-url is what makes setup-node write the .npmrc that
+          # consumes NODE_AUTH_TOKEN below. It is also exactly what prevents
+          # OIDC from working, so it belongs with the token and leaves with it.
+          registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - name: Require v<package-version> release tag
         run: test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
       - run: ./scripts/gates --full
-      # NO token, deliberately. This publishes as a trusted publisher: npm
-      # verifies the OIDC claim naming this repository and this workflow
-      # file, so there is nothing to store and nothing to expire.
+      # A token, for now, and this is a BOOTSTRAP rather than a preference.
       #
-      # Two ways this was tried and failed, so neither gets tried again:
-      # a granular token EXPIRED and the registry answered 404; a replacement
-      # token hit EOTP, because the account is set to auth-and-writes and a
-      # runner cannot type a one-time password. Trusted publishing is exempt
-      # from 2FA precisely because the identity is the workflow, not a human.
+      # Trusted publishing is still the right answer and the trust config for
+      # this package is written; what cannot happen is registering it. npm
+      # requires a typed 6-digit code for that operation, `npm trust` has no
+      # browser fallback the way `npm profile` does, and this account's second
+      # factor is a passkey. Direct `npm publish` from a laptop is closed off
+      # for the same reason, in every 2FA mode. So the only door left open to
+      # create the package at all is a token in CI, which is how 0.1.0 through
+      # 0.2.0 shipped.
       #
-      # Requires npm >= 11.5.1, which node 24 already ships.
+      # This token previously failed with EOTP because the account was set to
+      # auth-and-writes, which demands a code per publish. It is auth-only now,
+      # which is the setting a token needs.
+      #
+      # Once the package EXISTS, a trusted publisher can be configured from
+      # npmjs.com in a browser, where a passkey works fine. At that point:
+      # delete this env block, delete registry-url above, delete the secret.
+      # See RELEASING.md.
       - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
