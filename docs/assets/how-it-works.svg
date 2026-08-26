@@ -1,67 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 430" role="img" aria-labelledby="title desc">
-  <title id="title">How Agent Config works</title>
-  <desc id="desc">Shared instructions route work to a matching skill. Before a tool runs, the guard allows it or blocks it with a safer route.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 372" width="900" height="372" role="img" aria-labelledby="t d">
+  <title id="t">What the guard does</title>
+  <desc id="d">Ordinary commands run untouched. A force push to main is refused, and the refusal names the command that does the same job safely.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0 0 10 5 0 10z" fill="#334155"/>
-    </marker>
     <style>
-      .heading { font: 700 26px ui-sans-serif, system-ui, sans-serif; fill: #0f172a; }
-      .label { font: 700 20px ui-sans-serif, system-ui, sans-serif; fill: #0f172a; }
-      .body { font: 500 16px ui-sans-serif, system-ui, sans-serif; fill: #475569; }
-      .small { font: 650 15px ui-sans-serif, system-ui, sans-serif; fill: #334155; }
-      .line { fill: none; stroke: #334155; stroke-width: 3; marker-end: url(#arrow); }
-      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 17px; }
+      .ui   { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+      .dim  { fill: #7d8590; }
+      .cmd  { fill: #e6edf3; }
+      .ok   { fill: #3fb950; }
+      .no   { fill: #f85149; }
+      .hint { fill: #d29922; }
     </style>
   </defs>
 
-  <rect width="1120" height="430" rx="20" fill="#f8fafc"/>
-  <text x="40" y="50" class="heading">Route the work. Check the action.</text>
+  <rect width="900" height="372" rx="14" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
 
-  <g transform="translate(40 94)">
-    <rect class="box" width="230" height="90" rx="12"/>
-    <text x="20" y="36" class="label">Shared instructions</text>
-    <text x="20" y="65" class="body">Choose the current stage</text>
-  </g>
+  <circle cx="30" cy="30" r="6" fill="#ff5f57"/>
+  <circle cx="52" cy="30" r="6" fill="#febc2e"/>
+  <circle cx="74" cy="30" r="6" fill="#28c840"/>
+  <text x="104" y="35" class="ui dim" font-size="14" font-weight="600">your coding agent, working</text>
+  <line x1="0" y1="56" x2="900" y2="56" stroke="#30363d" stroke-width="1.5"/>
 
-  <g transform="translate(40 212)">
-    <rect class="box" width="230" height="90" rx="12"/>
-    <text x="20" y="36" class="label">Matching skill</text>
-    <text x="20" y="65" class="body">Guide that stage of work</text>
-  </g>
+  <text x="32" y="104" class="mono"><tspan class="dim">$</tspan><tspan class="cmd" dx="10">git push origin my-feature</tspan></text>
+  <text x="868" y="104" class="mono ok" text-anchor="end" font-size="15">runs</text>
 
-  <path class="line" d="M270 139h74v81h50"/>
-  <path class="line" d="M270 257h74v-37h50"/>
+  <text x="32" y="142" class="mono"><tspan class="dim">$</tspan><tspan class="cmd" dx="10">rm -rf node_modules</tspan></text>
+  <text x="868" y="142" class="mono ok" text-anchor="end" font-size="15">runs</text>
 
-  <g transform="translate(394 159)">
-    <rect width="210" height="122" rx="14" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
-    <text x="105" y="48" text-anchor="middle" class="label">Coding agent</text>
-    <text x="105" y="78" text-anchor="middle" class="body">Chooses a tool call</text>
-  </g>
+  <text x="32" y="180" class="mono"><tspan class="dim">$</tspan><tspan class="cmd" dx="10">psql -h localhost -c 'select 1'</tspan></text>
+  <text x="868" y="180" class="mono ok" text-anchor="end" font-size="15">runs</text>
 
-  <path class="line" d="M604 220h92"/>
+  <line x1="32" y1="206" x2="868" y2="206" stroke="#21262d" stroke-width="1.5"/>
 
-  <g transform="translate(696 159)">
-    <rect width="172" height="122" rx="14" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
-    <text x="86" y="48" text-anchor="middle" class="label">Guard</text>
-    <text x="86" y="78" text-anchor="middle" class="body">Checks the action</text>
-  </g>
+  <text x="32" y="248" class="mono"><tspan class="dim">$</tspan><tspan class="cmd" dx="10">git push --force origin main</tspan></text>
+  <text x="868" y="248" class="mono no" text-anchor="end" font-size="15">stopped</text>
 
-  <path class="line" d="M868 202h74"/>
-  <path class="line" d="M868 245h36v86h38"/>
-
-  <g transform="translate(942 159)">
-    <rect width="138" height="86" rx="12" fill="#ecfdf5" stroke="#16a34a" stroke-width="2"/>
-    <text x="69" y="35" text-anchor="middle" class="label">Run</text>
-    <text x="69" y="61" text-anchor="middle" class="small">Safe action</text>
-  </g>
-
-  <g transform="translate(942 288)">
-    <rect width="138" height="86" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
-    <text x="69" y="35" text-anchor="middle" class="label">Block</text>
-    <text x="69" y="61" text-anchor="middle" class="small">Safer route</text>
-  </g>
-
-  <text x="889" y="187" class="small" fill="#166534">allow</text>
-  <text x="879" y="317" class="small" fill="#991b1b">refuse</text>
+  <rect x="32" y="268" width="836" height="76" rx="8" fill="#161b22" stroke="#f85149" stroke-width="1.5" stroke-opacity="0.45"/>
+  <text x="52" y="298" class="mono no" font-size="16">BLOCKED: force push.</text>
+  <text x="52" y="326" class="mono" font-size="16"><tspan class="hint">Do this instead:</tspan><tspan class="cmd" dx="8">git push --force-with-lease</tspan><tspan class="dim" dx="8">on your own PR branch</tspan></text>
 </svg>
