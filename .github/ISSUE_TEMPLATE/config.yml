@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/sid-thephysicskid/agent-config/security/advisories/new
+    url: https://github.com/sid-thephysicskid/onbelay/security/advisories/new
     about: Report privately. Please do not open a public issue for these.

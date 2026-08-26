@@ -47,7 +47,7 @@ class InstructionTest(unittest.TestCase):
     def test_malformed_markers_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory, "AGENTS.md")
-            path.write_text("<!-- agent-config:start -->\nbroken\n", encoding="utf-8")
+            path.write_text("<!-- onbelay:start -->\nbroken\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "malformed"):
                 instructions.validate(str(path))
 

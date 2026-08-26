@@ -34,14 +34,14 @@ from guard_parse import (  # noqa: F401
 # rules entirely, which is a choice the user is allowed to make and which
 # `--check` reports so it cannot be forgotten.
 _DEFAULT_PROTECTED = ("main", "master", "trunk", "release", "production", "prod")
-_override = os.environ.get("AGENT_GUARD_PROTECTED_BRANCHES")
+_override = os.environ.get("ONBELAY_PROTECTED_BRANCHES")
 PROTECTED_BRANCHES = (
     {b.strip() for b in _override.split(",") if b.strip()}
     if _override is not None else set(_DEFAULT_PROTECTED))
 
 # The three ref-MOVING rules below need the protected set as a regex
 # alternation. They used to carry a hand-typed copy of _DEFAULT_PROTECTED
-# instead, which meant AGENT_GUARD_PROTECTED_BRANCHES did not reach them and
+# instead, which meant ONBELAY_PROTECTED_BRANCHES did not reach them and
 # was wrong in both directions at once: a team on `develop` got the protection
 # they had configured for `commit` and `push` and none of it for `branch -f`,
 # `checkout -B` or `update-ref`, and a user who set the variable EMPTY to turn

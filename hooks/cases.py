@@ -238,11 +238,11 @@ CMD_CASES += [
     # The npm install COPIES the payload here and leaves ~/.claude/hooks as
     # symlinks into it, so protecting only the symlink protected only the
     # spelling nobody uses. One allowed command removed the whole guard.
-    ('rm -rf ~/.local/share/agent-config', MAIN, True),
-    ('rm ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py', MAIN, True),
-    ("sed -i '' 's/x/y/' ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py", MAIN, True),
-    ('cp /tmp/fake.py ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py', MAIN, True),
-    ('chmod 000 ~/.local/share/agent-config/0.3.0/hooks/guard_rules.py', MAIN, True),
+    ('rm -rf ~/.local/share/onbelay', MAIN, True),
+    ('rm ~/.local/share/onbelay/0.3.0/hooks/guard_rules.py', MAIN, True),
+    ("sed -i '' 's/x/y/' ~/.local/share/onbelay/0.3.0/hooks/guard_rules.py", MAIN, True),
+    ('cp /tmp/fake.py ~/.local/share/onbelay/0.3.0/hooks/guard_rules.py', MAIN, True),
+    ('chmod 000 ~/.local/share/onbelay/0.3.0/hooks/guard_rules.py', MAIN, True),
 
     # A config FILE is not an environment. These are the DEFAULT filenames the
     # tools ship with, so a negative test exempted the ordinary invocation.

@@ -57,7 +57,7 @@ DENY = (
 )
 
 _GUARD = "if test -f ~/.claude/hooks/%s; then exec python3 ~/.claude/hooks/%s; fi; exit 0"
-_COMMAND_TAG = "agent-config-hook-v1"
+_COMMAND_TAG = "onbelay-hook-v1"
 _TAGGED = re.compile(r"^: " + re.escape(_COMMAND_TAG) + r":([\w.-]+); ")
 
 
@@ -97,7 +97,7 @@ _OUR_SHAPE = re.compile(
     r"^if test -f ~/\.claude/hooks/([\w.-]+); then exec python3 "
     r"~/\.claude/hooks/\1; fi; exit 0$")
 
-_DENY_STATE_SUFFIX = ".agent-config-deny.json"
+_DENY_STATE_SUFFIX = ".onbelay-deny.json"
 
 
 def our_hook_script(command):

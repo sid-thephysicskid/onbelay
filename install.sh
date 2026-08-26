@@ -127,7 +127,7 @@ SKILL_ROOTS=()
 (( INSTALL_WORKFLOW )) && SKILL_ROOTS+=("$REPO/skills")
 (( INSTALL_OPERATOR )) && SKILL_ROOTS+=("$REPO/operator-skills")
 
-COMPACT="${AGENT_CONFIG_COMPACT:-0}"
+COMPACT="${ONBELAY_COMPACT:-0}"
 
 ok()   { (( COMPACT )) || printf '  \033[32m✓\033[0m %s\n' "$1"; }
 status() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
@@ -145,7 +145,7 @@ die()  {
 # a dotfile manager's and record 21 `.baklink-` files pointing at the old path;
 # uninstall then dutifully restores all 21 as dangling links, which is worse
 # than doing nothing, and reports success.
-ORIGINS="$CLAUDE_ROOT/.agent-config-origins"
+ORIGINS="$CLAUDE_ROOT/.onbelay-origins"
 _is_our_target() {
   # PATH BOUNDARY, not a bare prefix. `$t == "$REPO"*` also matched any path
   # that merely shares a string prefix with the clone, so a user's own
@@ -310,7 +310,7 @@ refuse_if_occupied() {
   exit 1
 }
 
-CONFLICT_STATE="$HOME/.local/share/agent-config/conflicts.json"
+CONFLICT_STATE="$HOME/.local/share/onbelay/conflicts.json"
 resolve_skill_conflicts() {
   (( ${#SKILL_CONFLICTS[@]} )) || return 0
   if (( CHECK )); then
@@ -318,11 +318,11 @@ resolve_skill_conflicts() {
     return 0
   fi
   if [[ "$CONFLICT_MODE" == auto ]]; then
-    if [[ "${AGENT_CONFIG_NONINTERACTIVE:-}" == 1 || ! -t 0 ]]; then
+    if [[ "${ONBELAY_NONINTERACTIVE:-}" == 1 || ! -t 0 ]]; then
       CONFLICT_MODE="keep"
     else
       printf '\n%d installed skill name(s) already exist.\n' "${#SKILL_CONFLICTS[@]}"
-      printf 'Keep them [K], back them up and use Agent Config [R], or cancel [C]? '
+      printf 'Keep them [K], back them up and use On Belay [R], or cancel [C]? '
       IFS= read -r answer
       case "${answer:-K}" in
         r|R) CONFLICT_MODE="replace" ;;
@@ -427,12 +427,12 @@ route_instructions() {  # route_instructions <host instruction path>
     # gets. Instruction files had none, and the merge replaces whatever sits
     # between the markers: a user who had already used those exact markers
     # lost the text inside them with nothing to restore from.
-    if [[ ! -e "$path.before-agent-config" ]]; then
-      cp "$path" "$path.before-agent-config"
+    if [[ ! -e "$path.before-onbelay" ]]; then
+      cp "$path" "$path.before-onbelay"
     fi
     python3 "$REPO/scripts/manage_instructions.py" merge "$path" "$source" \
       || die "could not merge routing instructions into $path"
-    ok "$path preserved with Agent Config routing"
+    ok "$path preserved with On Belay routing"
   fi
 }
 
@@ -441,7 +441,7 @@ route_instructions() {  # route_instructions <host instruction path>
 # half-install is worse than no install: it can leave CLAUDE.md promising
 # guardrails that were never wired.
 if (( ! COMPACT )); then
-  echo "agent-config $PROFILE profile at $REPO"
+  echo "onbelay $PROFILE profile at $REPO"
   (( CHECK )) && echo "(check only, nothing will change)"
   echo
   echo "Preflight"
@@ -537,7 +537,7 @@ if (( INSTALL_BASELINE )); then
         continue
       fi
       python3 "$REPO/scripts/manage_instructions.py" validate "$f" \
-        || die "$f has malformed Agent Config markers or is not a regular file. Fix it before installing."
+        || die "$f has malformed On Belay markers or is not a regular file. Fix it before installing."
     fi
   done
 fi
@@ -654,18 +654,18 @@ fi
 
 if (( ! CHECK )); then
   mkdir -p "$CLAUDE_ROOT" 2>/dev/null || die "cannot create $CLAUDE_ROOT (is HOME read-only?)"
-  touch "$CLAUDE_ROOT/.agent-config-write-test" 2>/dev/null \
+  touch "$CLAUDE_ROOT/.onbelay-write-test" 2>/dev/null \
     || die "$CLAUDE_ROOT is not writable. Nothing has been changed."
-  rm -f "$CLAUDE_ROOT/.agent-config-write-test"
-  touch "$HOME/.agent-config-write-test" 2>/dev/null \
+  rm -f "$CLAUDE_ROOT/.onbelay-write-test"
+  touch "$HOME/.onbelay-write-test" 2>/dev/null \
     || die "$HOME is not writable. Nothing has been changed."
-  rm -f "$HOME/.agent-config-write-test"
+  rm -f "$HOME/.onbelay-write-test"
   # ~/.codex too, or the Claude half completes and the Codex half aborts under
   # set -e, which is exactly the half-install the preflight promises to prevent.
   if [[ -d "$CODEX_ROOT" ]]; then
-    touch "$CODEX_ROOT/.agent-config-write-test" 2>/dev/null \
+    touch "$CODEX_ROOT/.onbelay-write-test" 2>/dev/null \
       || die "$CODEX_ROOT is not writable. Nothing has been changed."
-    rm -f "$CODEX_ROOT/.agent-config-write-test"
+    rm -f "$CODEX_ROOT/.onbelay-write-test"
   fi
   ok "HOME is writable"
 fi
@@ -688,7 +688,7 @@ fi
 
 if (( INSTALL_GUARD && GUARD_READY )); then
   python3 "$REPO/scripts/install_settings.py" validate "$CLAUDE_ROOT/settings.json" 2>/dev/null \
-    || die "$CLAUDE_ROOT/settings.json or its agent-config ownership state is invalid. Fix or move it first; this script will not rewrite state whose shape it does not understand."
+    || die "$CLAUDE_ROOT/settings.json or its onbelay ownership state is invalid. Fix or move it first; this script will not rewrite state whose shape it does not understand."
   [[ -f "$CLAUDE_ROOT/settings.json" ]] \
     && ok "existing settings.json parses and has the expected shape"
 fi
@@ -702,15 +702,15 @@ resolve_skill_conflicts
 if (( REMOVE_AUTO_BASELINE )); then
   if (( CHECK )); then
     if [[ "$BASELINE_MODE" == off ]]; then
-      err "global agent-config instructions are still installed; run without --check to remove them for --skills-only mode"
+      err "global onbelay instructions are still installed; run without --check to remove them for --skills-only mode"
     else
-      err "global instructions are split: one host still uses agent-config while the other is user-owned"
+      err "global instructions are split: one host still uses onbelay while the other is user-owned"
     fi
   else
     for p in "$CLAUDE_ROOT/CLAUDE.md" "$CODEX_ROOT/AGENTS.md"; do
       if [[ -L "$p" ]] && _is_our_target "$(readlink "$p")"; then
         rm "$p"
-        warn "removed agent-config baseline at $p so both hosts preserve user-owned instructions"
+        warn "removed onbelay baseline at $p so both hosts preserve user-owned instructions"
       fi
     done
   fi
@@ -843,10 +843,10 @@ if (( GUARD_READY && ! CHECK )); then
   # it and correctly takes no backup, so install #2 saw a file with no backup
   # sibling and copied the already-modified file under a name that says
   # "before". The recovery copy contained our own hooks and deny rules.
-  if [[ -f "$SETTINGS" && ! -e "$SETTINGS.before-agent-config" ]] \
-     && ! grep -q 'agent-config-hook-v1' "$SETTINGS" 2>/dev/null; then
-    cp "$SETTINGS" "$SETTINGS.before-agent-config"
-    detail_warn "settings.json copied to settings.json.before-agent-config"
+  if [[ -f "$SETTINGS" && ! -e "$SETTINGS.before-onbelay" ]] \
+     && ! grep -q 'onbelay-hook-v1' "$SETTINGS" 2>/dev/null; then
+    cp "$SETTINGS" "$SETTINGS.before-onbelay"
+    detail_warn "settings.json copied to settings.json.before-onbelay"
   fi
   # The merge lives in scripts/install_settings.py, with a test suite that
   # runs in milliseconds. It was 115 lines of Python inside this heredoc,
@@ -915,13 +915,13 @@ if [[ -d "$CODEX_ROOT" ]] || (( INSTALL_WORKFLOW )); then
     CODEX_HOOKS="$CODEX_ROOT/hooks.json"
     if (( GUARD_READY && ! CHECK )); then
       # Same reasoning as the settings.json copy above.
-      if [[ -f "$CODEX_HOOKS" && ! -e "$CODEX_HOOKS.before-agent-config" ]] \
+      if [[ -f "$CODEX_HOOKS" && ! -e "$CODEX_HOOKS.before-onbelay" ]] \
          && ! grep -q 'guard-codex.py' "$CODEX_HOOKS" 2>/dev/null; then
-        cp "$CODEX_HOOKS" "$CODEX_HOOKS.before-agent-config"
-        detail_warn "hooks.json copied to hooks.json.before-agent-config"
+        cp "$CODEX_HOOKS" "$CODEX_HOOKS.before-onbelay"
+        detail_warn "hooks.json copied to hooks.json.before-onbelay"
       fi
       python3 "$REPO/scripts/install_codex_hooks.py" merge "$CODEX_HOOKS" "$REPO" \
-        || die "could not merge agent-config hooks into $CODEX_HOOKS"
+        || die "could not merge onbelay hooks into $CODEX_HOOKS"
       ok "hooks.json PreToolUse guard merged (existing hooks preserved)"
       detail_warn "review and trust new or changed Codex hooks with /hooks."
     elif (( GUARD_READY )); then
@@ -929,7 +929,7 @@ if [[ -d "$CODEX_ROOT" ]] || (( INSTALL_WORKFLOW )); then
       if python3 "$REPO/scripts/install_codex_hooks.py" check "$CODEX_HOOKS" "$REPO"; then
         ok "codex hooks.json guard parity"
       else
-        err "codex hooks.json missing, unparseable, or missing the agent-config guard"
+        err "codex hooks.json missing, unparseable, or missing the onbelay guard"
       fi
       # Trust is keyed to each current hook definition and is intentionally not
       # inferred from private config internals. /hooks is the supported view.
@@ -990,11 +990,11 @@ PROBES
   fi
   # A narrowed or emptied branch list is a legitimate choice and a quiet one,
   # so say it out loud rather than letting a user forget they made it.
-  if [[ -n "${AGENT_GUARD_PROTECTED_BRANCHES+set}" ]]; then
-    if [[ -z "$AGENT_GUARD_PROTECTED_BRANCHES" ]]; then
-      warn "AGENT_GUARD_PROTECTED_BRANCHES is empty: the protected-branch rules are OFF."
+  if [[ -n "${ONBELAY_PROTECTED_BRANCHES+set}" ]]; then
+    if [[ -z "$ONBELAY_PROTECTED_BRANCHES" ]]; then
+      warn "ONBELAY_PROTECTED_BRANCHES is empty: the protected-branch rules are OFF."
     else
-      warn "AGENT_GUARD_PROTECTED_BRANCHES is set, so the protected branches are: $AGENT_GUARD_PROTECTED_BRANCHES"
+      warn "ONBELAY_PROTECTED_BRANCHES is set, so the protected branches are: $ONBELAY_PROTECTED_BRANCHES"
     fi
   fi
   # The signal already existed and nothing ever surfaced it. A non-empty log
@@ -1037,12 +1037,12 @@ if (( CHECK )); then
       standard) _fix_flag="" ;;
       *)        _fix_flag=" $PROFILE" ;;
     esac
-    # AGENT_CONFIG_COMPACT is set by bin/agent-config.js and by nothing else,
+    # ONBELAY_COMPACT is set by bin/onbelay.js and by nothing else,
     # so it is already the answer to "how did this user install". Printing
     # `./install.sh` at an npx user names a file they do not have, and it was
     # on EVERY non-clean doctor run.
     if (( COMPACT )); then
-      echo "Check complete: $PROBLEMS problem(s). Run: npx @sid-thephysicskid/agent-config@latest install${_fix_flag} to fix."
+      echo "Check complete: $PROBLEMS problem(s). Run: npx @sid-thephysicskid/onbelay@latest install${_fix_flag} to fix."
     else
       echo "Check complete: $PROBLEMS problem(s). Run ./install.sh $PROFILE to fix."
     fi

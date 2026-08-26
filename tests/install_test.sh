@@ -30,7 +30,7 @@ EOF
 out="$(HOME="$H" bash "$S/repo/install.sh" full --baseline 2>&1)"; code=$?
 chk "install succeeds" "$code" "0"
 chk "names the occupied path" "$(grep -c 'CLAUDE.md' <<<"$out")" "1"
-chk "adds one routing block" "$(grep -c 'agent-config:start' "$H/.claude/CLAUDE.md")" "1"
+chk "adds one routing block" "$(grep -c 'onbelay:start' "$H/.claude/CLAUDE.md")" "1"
 # The point of the whole change: an install attempt must be a no-op.
 chk "their CLAUDE.md remains first" "$(head -1 "$H/.claude/CLAUDE.md")" "my personal instructions"
 chk "not replaced by our symlink" "$([ -L "$H/.claude/CLAUDE.md" ] && echo yes || echo no)" "no"
@@ -55,7 +55,7 @@ chk "user's own hook preserved" "$(grep -c my-own-hook "$H/.claude/settings.json
 chk "user's own skill STILL WORKS in place" "$(cat "$H/.claude/skills/my-own-skill/SKILL.md" 2>/dev/null)" "mine"
 chk "our skills linked alongside" "$([ -L "$H/.claude/skills/ship" ] && echo yes || echo no)" "yes"
 chk "settings.json copied once before the first change" \
-  "$([ -f "$H/.claude/settings.json.before-agent-config" ] && echo yes || echo no)" "yes"
+  "$([ -f "$H/.claude/settings.json.before-onbelay" ] && echo yes || echo no)" "yes"
 
 echo "== 3. idempotent: run 3x, no duplicate hook entries =="
 HOME="$H" bash "$S/repo/install.sh" full >/dev/null 2>&1
@@ -158,13 +158,13 @@ HOME="$H" bash "$S/repo/install.sh" full >/dev/null 2>&1; chk "installed" "$?" "
 chk "their CLAUDE.md preserved" "$(head -1 "$H/.claude/CLAUDE.md")" "my personal instructions"
 chk "not a symlink" "$([ -L "$H/.claude/CLAUDE.md" ] && echo yes || echo no)" "no"
 HOME="$H" bash "$S/repo/uninstall.sh" >/dev/null 2>&1
-chk "routing block is gone" "$(grep -c 'agent-config:start' "$H/.claude/CLAUDE.md")" "0"
+chk "routing block is gone" "$(grep -c 'onbelay:start' "$H/.claude/CLAUDE.md")" "0"
 chk "their file is restored" "$(cat "$H/.claude/CLAUDE.md")" "my personal instructions"
 
 echo "== 12. a colliding Codex skill name is kept =="
 H="$S/h12"; mkdir -p "$H/.codex/skills/review"
 echo "their review" > "$H/.codex/skills/review/SKILL.md"
-out="$(HOME="$H" AGENT_CONFIG_NONINTERACTIVE=1 bash "$S/repo/install.sh" full 2>&1)"; chk "installed" "$?" "0"
+out="$(HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full 2>&1)"; chk "installed" "$?" "0"
 chk "reports one kept skill" "$(grep -c 'kept 1 existing skill' <<<"$out")" "1"
 chk "their review is untouched" "$(cat "$H/.codex/skills/review/SKILL.md")" "their review"
 chk "nothing of ours nested inside it" "$(ls "$H/.codex/skills/review" | tr -d ' \n')" "SKILL.md"
@@ -214,7 +214,7 @@ echo "== 17. a per-skill symlink of theirs is kept =="
 H="$S/h17"; mkdir -p "$H/.claude/skills" "$H/dots/review"
 echo "their review" > "$H/dots/review/SKILL.md"
 ln -s "$H/dots/review" "$H/.claude/skills/review"
-HOME="$H" AGENT_CONFIG_NONINTERACTIVE=1 bash "$S/repo/install.sh" full >/dev/null 2>&1; chk "installed" "$?" "0"
+HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full >/dev/null 2>&1; chk "installed" "$?" "0"
 chk "their link is intact" "$(readlink "$H/.claude/skills/review")" "$H/dots/review"
 chk "their skill still loads" "$(cat "$H/.claude/skills/review/SKILL.md")" "their review"
 
@@ -232,7 +232,7 @@ chk "our PreToolUse is wired" "$(grep -cF -- 'guard-codex.py' "$H/.codex/hooks.j
 chk "we add no Stop hook" "$(grep -cF -- 'check-docs.py' "$H/.codex/hooks.json")" "0"
 chk "we add no SessionStart hook" "$(grep -cF -- 'welcome.py' "$H/.codex/hooks.json")" "0"
 chk "their original file has one recovery copy" \
-  "$(grep -cF -- 'mine/stop.py' "$H/.codex/hooks.json.before-agent-config")" "1"
+  "$(grep -cF -- 'mine/stop.py' "$H/.codex/hooks.json.before-onbelay")" "1"
 HOME="$H" bash "$S/repo/uninstall.sh" >/dev/null 2>&1
 chk "their hooks file remains" "$([ -f "$H/.codex/hooks.json" ] && echo yes || echo no)" "yes"
 chk "their hook survives uninstall" "$(grep -cF -- 'mine/stop.py' "$H/.codex/hooks.json")" "1"
@@ -523,7 +523,7 @@ EOF
 HOME="$H" bash "$S/repo/install.sh" full --check >/dev/null 2>&1
 chk "exits nonzero" "$([ $? -ne 0 ] && echo yes || echo no)" "yes"
 out=$(HOME="$H" bash "$S/repo/install.sh" full --check 2>&1)
-chk "and says why" "$(grep -c 'missing the agent-config guard' <<<"$out")" "1"
+chk "and says why" "$(grep -c 'missing the onbelay guard' <<<"$out")" "1"
 
 echo "== 42. --check routes hook trust through Codex's supported UI =="
 H="$S/h42"; mkdir -p "$H/.codex"
@@ -579,7 +579,7 @@ chk "settings.json still written" "$(grep -c guard-bash "$H/.claude/settings.jso
 chk "CLAUDE.md still linked" "$([ -L "$H/.claude/CLAUDE.md" ] && echo yes || echo no)" "yes"
 # A real file of theirs where a skill link belongs is kept.
 H="$S/h48b"; mkdir -p "$H/.claude/skills"; echo x > "$H/.claude/skills/review"
-HOME="$H" AGENT_CONFIG_NONINTERACTIVE=1 bash "$S/repo/install.sh" full >/dev/null 2>&1; chk "a plain file is kept" "$?" "0"
+HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full >/dev/null 2>&1; chk "a plain file is kept" "$?" "0"
 chk "and it still says x" "$(cat "$H/.claude/skills/review")" "x"
 
 echo "== 49. relocating the repo does not manufacture dangling symlinks =="
@@ -662,7 +662,7 @@ H="$S/home with space"; mkdir -p "$H/.codex" "$H/.claude"
 echo "my instructions" > "$H/.claude/CLAUDE.md"
 out="$(HOME="$H" bash "$S/repo/install.sh" full 2>&1)"; chk "install exit 0" "$?" "0"
 chk "their file stays first" "$(head -1 "$H/.claude/CLAUDE.md")" "my instructions"
-chk "routing is added" "$(grep -c 'agent-config:start' "$H/.claude/CLAUDE.md")" "1"
+chk "routing is added" "$(grep -c 'onbelay:start' "$H/.claude/CLAUDE.md")" "1"
 chk "skills linked" "$([ -L "$H/.claude/skills/ship" ] && echo yes || echo no)" "yes"
 HOME="$H" bash "$S/repo/uninstall.sh" >/dev/null 2>&1; chk "uninstall exit 0" "$?" "0"
 chk "their file still theirs" "$(cat "$H/.claude/CLAUDE.md" 2>/dev/null)" "my instructions"
@@ -700,7 +700,7 @@ echo "== 56. an ORIGINS file with no trailing newline is still read =="
 H="$S/h56"; mkdir -p "$H/.codex"
 mkdir -p "$S/n1"; cp -R "$S/repo" "$S/n1/repo"
 HOME="$H" bash "$S/n1/repo/install.sh" full >/dev/null 2>&1
-printf '%s' "$S/n1/repo" > "$H/.claude/.agent-config-origins"   # no newline
+printf '%s' "$S/n1/repo" > "$H/.claude/.onbelay-origins"   # no newline
 mkdir -p "$S/n2"; mv "$S/n1/repo" "$S/n2/repo"
 HOME="$H" bash "$S/n2/repo/uninstall.sh" >/dev/null 2>&1
 left=0
@@ -714,14 +714,14 @@ H="$S/h57"; mkdir -p "$H/.claude"
 printf '{"model":"opus",}\n' > "$H/.claude/settings.json"    # malformed: aborts
 HOME="$H" bash "$S/repo/install.sh" full >/dev/null 2>&1
 chk "exits nonzero" "$([ $? -ne 0 ] && echo yes || echo no)" "yes"
-chk "no origins file written" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "no"
+chk "no origins file written" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "no"
 # ...and --check must not write it either: it is documented as changing nothing,
 # and a recorded origin permanently widens what uninstall will delete.
 # ~/.claude must EXIST, or removing the guard fails for want of a parent
 # directory and this passes for the wrong reason.
 H="$S/h57b"; mkdir -p "$H/.claude"
 HOME="$H" bash "$S/repo/install.sh" full --check >/dev/null 2>&1
-chk "--check writes no origins file" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "no"
+chk "--check writes no origins file" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "no"
 H="$S/h57c"; mkdir -p "$H"
 HOME="$H" bash "$S/repo/install.sh" full --check >/dev/null 2>&1
 chk "--check creates no ~/.claude at all" "$([ -e "$H/.claude" ] && echo yes || echo no)" "no"
@@ -759,10 +759,10 @@ echo "== 61. an ORIGINS file with no trailing newline survives a re-install =="
 H="$S/h61"; mkdir -p "$H/.codex"
 mkdir -p "$S/w1"; cp -R "$S/repo" "$S/w1/repo"
 HOME="$H" bash "$S/w1/repo/install.sh" full >/dev/null 2>&1
-printf '%s' "$S/w1/repo" > "$H/.claude/.agent-config-origins"    # strip the newline
+printf '%s' "$S/w1/repo" > "$H/.claude/.onbelay-origins"    # strip the newline
 mkdir -p "$S/w2"; mv "$S/w1/repo" "$S/w2/repo"
 HOME="$H" bash "$S/w2/repo/install.sh" full >/dev/null 2>&1
-chk "the old origin survives" "$(grep -cxF -- "$S/w1/repo" "$H/.claude/.agent-config-origins")" "1"
+chk "the old origin survives" "$(grep -cxF -- "$S/w1/repo" "$H/.claude/.onbelay-origins")" "1"
 chk "no baklink records of our own" \
   "$(find "$H/.claude/skills" -maxdepth 1 -mindepth 1 -name '*baklink-*' -print \
      2>/dev/null | wc -l | tr -d ' ')" "0"
@@ -880,7 +880,7 @@ printf '%s\n' "mine" > "$H/.claude/CLAUDE.md"
 out="$(HOME="$H" bash "$S/repo/install.sh" workflow 2>&1)"; rc=$?
 chk "automatic baseline preserves existing instructions" "$rc" "0"
 chk "existing Claude instructions survive" "$(head -1 "$H/.claude/CLAUDE.md")" "mine"
-chk "existing Claude instructions receive routing" "$(grep -c 'agent-config:start' "$H/.claude/CLAUDE.md")" "1"
+chk "existing Claude instructions receive routing" "$(grep -c 'onbelay:start' "$H/.claude/CLAUDE.md")" "1"
 chk "Codex receives shared routing" "$([ -e "$H/.codex/AGENTS.md" ] && echo yes || echo no)" "yes"
 chk "automatic fallback still installs initializer" "$([ -L "$H/.local/bin/agent-init" ] && echo yes || echo no)" "yes"
 
@@ -912,7 +912,7 @@ HOME="$H" bash "$S/repo/install.sh" workflow --skills-only >/dev/null 2>&1; rc=$
 chk "Codex home file is refused before mutation" "$([ $rc -ne 0 ] && echo yes || echo no)" "yes"
 chk "Codex home file is untouched" "$(cat "$H/.codex")" "mine"
 chk "Codex home file leaves no workflow links" "$(find "$H" -type l | wc -l | tr -d ' ')" "0"
-chk "Codex home file records no origin" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "no"
+chk "Codex home file records no origin" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "no"
 
 H="$S/h66localfile"; mkdir -p "$H"
 printf '%s\n' "mine" > "$H/.local"
@@ -920,14 +920,14 @@ HOME="$H" bash "$S/repo/install.sh" workflow --skills-only >/dev/null 2>&1; rc=$
 chk "local parent file is refused before mutation" "$([ $rc -ne 0 ] && echo yes || echo no)" "yes"
 chk "local parent file is untouched" "$(cat "$H/.local")" "mine"
 chk "local parent file leaves no workflow links" "$(find "$H" -type l | wc -l | tr -d ' ')" "0"
-chk "local parent file records no origin" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "no"
+chk "local parent file records no origin" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "no"
 
 H="$S/h66localsymlink"; mkdir -p "$H/dotfiles/local"
 ln -s "$H/dotfiles/local" "$H/.local"
 HOME="$H" bash "$S/repo/install.sh" workflow --skills-only >/dev/null 2>&1; rc=$?
 chk "dotfile-managed local parent is supported" "$([ $rc -eq 0 ] && echo yes || echo no)" "yes"
 chk "dotfile-managed local parent receives bin" "$([ -L "$H/dotfiles/local/bin/agent-init" ] && echo yes || echo no)" "yes"
-chk "dotfile-managed local parent records origin" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "yes"
+chk "dotfile-managed local parent records origin" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "yes"
 
 echo "== 66a. partial uninstall removes only the selected product =="
 H="$S/h66u"; mkdir -p "$H/.codex"
@@ -945,7 +945,7 @@ chk "workflow Codex baseline removed" "$([ -e "$H/.codex/AGENTS.md" ] && echo ye
 chk "guard survives workflow uninstall" "$([ -L "$H/.claude/hooks/guard-bash.py" ] && echo yes || echo no)" "yes"
 HOME="$H" bash "$S/repo/uninstall.sh" guard >/dev/null 2>&1
 chk "guard removed last" "$([ -e "$H/.claude/hooks/guard-bash.py" ] && echo yes || echo no)" "no"
-chk "last partial uninstall removes ownership state" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "no"
+chk "last partial uninstall removes ownership state" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "no"
 
 echo "== 66b. workflow has no executable guard dependencies =="
 H="$S/h66b"; F="$S/fakebin66b"; mkdir -p "$H" "$F"
@@ -1032,12 +1032,12 @@ HOME="$H" bash "$S/repo/install.sh" full --baseline >/dev/null 2>&1
 rc=$?
 chk "baseline merge succeeds" "$([ $rc -eq 0 ] && echo yes || echo no)" "yes"
 chk "baseline occupant stays first" "$(head -1 "$H/.claude/CLAUDE.md")" "mine"
-chk "baseline receives one managed block" "$(grep -c 'agent-config:start' "$H/.claude/CLAUDE.md")" "1"
+chk "baseline receives one managed block" "$(grep -c 'onbelay:start' "$H/.claude/CLAUDE.md")" "1"
 
 echo "== 70. selective installs prune only their own product =="
 H="$S/h70"; mkdir -p "$H/.claude/skills" "$H/.codex/skills"
-old="$S/old-agent-config"
-printf '%s\n' "$old" > "$H/.claude/.agent-config-origins"
+old="$S/old-onbelay"
+printf '%s\n' "$old" > "$H/.claude/.onbelay-origins"
 ln -s "$old/operator-skills/wizard" "$H/.claude/skills/wizard"
 ln -s "$old/operator-skills/wizard" "$H/.codex/skills/wizard"
 HOME="$H" bash "$S/repo/install.sh" workflow >/dev/null 2>&1
@@ -1074,7 +1074,7 @@ out="$(HOME="$H" bash "$S/repo/install.sh" operator 2>&1)"; rc=$?
 chk "read-only output styles exits nonzero" "$([ $rc -ne 0 ] && echo yes || echo no)" "yes"
 chk "read-only destination is named" "$(grep -c 'output-styles is not writable' <<<"$out")" "1"
 chk "read-only destination leaves no skill links" "$(find "$H" -type l | wc -l | tr -d ' ')" "0"
-chk "read-only destination records no origin" "$([ -e "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "no"
+chk "read-only destination records no origin" "$([ -e "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "no"
 chmod 0755 "$H/.claude/output-styles"
 
 echo "== 74. uninstall preserves preexisting matching deny rules =="
@@ -1086,7 +1086,7 @@ chk "preexisting matching deny survives" \
   "$(python3 -c "import json; print('Bash(git reset --hard:*)' in json.load(open('$H/.claude/settings.json'))['permissions']['deny'])")" "True"
 chk "unrelated deny survives" \
   "$(python3 -c "import json; print('Bash(mine:*)' in json.load(open('$H/.claude/settings.json'))['permissions']['deny'])")" "True"
-chk "deny ownership state is removed" "$([ -e "$H/.claude/settings.json.agent-config-deny.json" ] && echo yes || echo no)" "no"
+chk "deny ownership state is removed" "$([ -e "$H/.claude/settings.json.onbelay-deny.json" ] && echo yes || echo no)" "no"
 
 echo "== 75. every custom destination is writable before mutation =="
 H="$S/h75a"; mkdir -p "$H/.claude" "$H/.codex" "$H/dotfiles"
@@ -1158,10 +1158,10 @@ echo "== 77. instruction files are recoverable and keep their line endings =="
 # used those exact markers lost the text inside them, and instruction files got
 # no recovery copy at all, so it was unrecoverable. settings.json always had one.
 H="$S/h77a"; mkdir -p "$H/.claude" "$H/.codex"
-printf 'MY RULES\n<!-- agent-config:start -->\nMY OWN TEXT\n<!-- agent-config:end -->\nafter\n' > "$H/.claude/CLAUDE.md"
+printf 'MY RULES\n<!-- onbelay:start -->\nMY OWN TEXT\n<!-- onbelay:end -->\nafter\n' > "$H/.claude/CLAUDE.md"
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
-chk "a recovery copy is kept" "$([ -f "$H/.claude/CLAUDE.md.before-agent-config" ] && echo yes || echo no)" "yes"
-chk "their text is recoverable" "$(grep -c 'MY OWN TEXT' "$H/.claude/CLAUDE.md.before-agent-config" 2>/dev/null || echo 0)" "1"
+chk "a recovery copy is kept" "$([ -f "$H/.claude/CLAUDE.md.before-onbelay" ] && echo yes || echo no)" "yes"
+chk "their text is recoverable" "$(grep -c 'MY OWN TEXT' "$H/.claude/CLAUDE.md.before-onbelay" 2>/dev/null || echo 0)" "1"
 # A CRLF file was rewritten to LF, whole file, with nothing to restore from.
 H="$S/h77b"; mkdir -p "$H/.claude" "$H/.codex"
 printf 'MY RULES\r\nsecond line\r\n' > "$H/.claude/CLAUDE.md"
@@ -1180,7 +1180,7 @@ chk "an LF file stays LF" "$(tr -dc '\r' < "$H/.claude/CLAUDE.md" | wc -c | tr -
 H="$S/h77d"; mkdir -p "$H/.claude" "$H/.codex"
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
-chk "no spurious backup on a clean machine" "$([ -e "$H/.claude/CLAUDE.md.before-agent-config" ] && echo yes || echo no)" "no"
+chk "no spurious backup on a clean machine" "$([ -e "$H/.claude/CLAUDE.md.before-onbelay" ] && echo yes || echo no)" "no"
 
 echo "== 78. installer integrity: no half-wire, honest backups, honest uninstall =="
 # A dotfile-managed Codex hooks.json whose target does not exist got past every
@@ -1200,21 +1200,21 @@ H="$S/h78b"; mkdir -p "$H/.claude" "$H/.codex"
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
 chk "no backup of a file we created" \
-  "$([ -e "$H/.claude/settings.json.before-agent-config" ] && echo yes || echo no)" "no"
+  "$([ -e "$H/.claude/settings.json.before-onbelay" ] && echo yes || echo no)" "no"
 # ...while a genuinely pre-existing file still gets exactly one.
 H="$S/h78c"; mkdir -p "$H/.claude" "$H/.codex"
 echo '{"model":"opus"}' > "$H/.claude/settings.json"
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
 chk "a pre-existing file is backed up" \
-  "$(grep -c '"model": *"opus"' "$H/.claude/settings.json.before-agent-config")" "1"
+  "$(grep -c '"model": *"opus"' "$H/.claude/settings.json.before-onbelay")" "1"
 chk "and the backup is untouched by us" \
-  "$(grep -c 'agent-config-hook-v1' "$H/.claude/settings.json.before-agent-config" || true)" "0"
+  "$(grep -c 'onbelay-hook-v1' "$H/.claude/settings.json.before-onbelay" || true)" "0"
 
 # Losing the deny ownership sidecar left every rule in place and said nothing.
 H="$S/h78d"; mkdir -p "$H/.claude" "$H/.codex"
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
-rm -f "$H/.claude/settings.json.agent-config-deny.json"
+rm -f "$H/.claude/settings.json.onbelay-deny.json"
 out="$(HOME="$H" bash "$S/repo/uninstall.sh" 2>&1)"
 chk "uninstall says which rules it left" "$(grep -c 'ownership record is missing' <<<"$out")" "1"
 

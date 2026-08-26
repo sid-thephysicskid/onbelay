@@ -45,7 +45,7 @@ body:
     id: env
     attributes:
       label: Version and platform
-      description: "Output of: npx @sid-thephysicskid/agent-config@latest --version, plus your OS."
+      description: "Output of: npx @sid-thephysicskid/onbelay@latest --version, plus your OS."
       render: shell
     validations:
       required: true
