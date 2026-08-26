@@ -28,7 +28,7 @@ def load(path):
 def save(path, entries):
     directory = os.path.dirname(path)
     os.makedirs(directory, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".agent-config-conflicts-", dir=directory)
+    fd, temporary = tempfile.mkstemp(prefix=".onbelay-conflicts-", dir=directory)
     try:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:

@@ -2,6 +2,32 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-26
+
+### Changed
+
+Renamed to **On Belay**. The package is now `@sid-thephysicskid/onbelay` and
+the command is `onbelay`.
+
+"On belay?" / "Belay on!" is the call-and-response climbers exchange before the
+climber moves: a check spoken out loud, every time, before the next action.
+That is what a PreToolUse hook is. The second meaning is the one that matters
+more: a belay rope does not stop you climbing, it catches you when you fall,
+which is this project's whole stance. Not a sandbox. A rope, with something on
+the other end of it.
+
+The old name described the file it wrote. This one describes what it does.
+
+Every identifier moved with it: `~/.local/share/onbelay/` for the payload,
+`onbelay-hook-v1` markers in settings.json, `onbelay:start` blocks in
+instruction files, `.onbelay-origins`, `ONBELAY_COMPACT`, and
+`ONBELAY_NONINTERACTIVE`. The protected-branch override is now
+`ONBELAY_PROTECTED_BRANCHES`.
+
+`@sid-thephysicskid/agent-config` is deprecated and points here. If you
+installed it, run its `uninstall` before installing this: the two use
+different paths and markers, and nothing is shared between them.
+
 ## [0.3.1] - 2026-08-26
 
 Five independent audits, then the fixes. Every finding below was reproduced
@@ -11,13 +37,13 @@ found by this repo's own corpus catching a change to itself.
 ### Fixed
 
 The guard did not protect its own installed files. The npm install copies the
-payload to `~/.local/share/agent-config/` and leaves `~/.claude/hooks` as
+payload to `~/.local/share/onbelay/` and leaves `~/.claude/hooks` as
 symlinks into it, and only the symlink location was guarded, so
-`rm -rf ~/.local/share/agent-config` removed the whole guard and was allowed.
+`rm -rf ~/.local/share/onbelay` removed the whole guard and was allowed.
 The hook shim exits 0 when its file is missing, so the result was a machine
 with no guard and nothing saying so.
 
-`AGENT_GUARD_PROTECTED_BRANCHES` did not reach `branch -f`, `checkout -B` or
+`ONBELAY_PROTECTED_BRANCHES` did not reach `branch -f`, `checkout -B` or
 `update-ref`, which carried a hand-typed copy of the default list. It was wrong
 in both directions: a team on `develop` got no protection from those three, and
 an empty value, which the README says turns the rules off, still refused moving

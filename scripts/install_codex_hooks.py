@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge agent-config hooks into Codex hooks.json without taking it over.
+"""Merge onbelay hooks into Codex hooks.json without taking it over.
 
     install_codex_hooks.py merge <path> <repo>
     install_codex_hooks.py strip <path>
@@ -17,16 +17,16 @@ import sys
 import tempfile
 
 
-DESCRIPTION = "PreToolUse guardrails from agent-config"
+DESCRIPTION = "PreToolUse guardrails from onbelay"
 LEGACY_DESCRIPTIONS = {
-    "Guardrails shared with Claude Code via agent-config/hooks",
-    "Lifecycle hooks shared with Claude Code via agent-config/hooks",
+    "Guardrails shared with Claude Code via onbelay/hooks",
+    "Lifecycle hooks shared with Claude Code via onbelay/hooks",
 }
 LEGACY_SCRIPTS = {"guard-codex.py", "check-docs.py", "welcome.py"}
 WIRING = (
     ("PreToolUse", ".*", "guard-codex.py", 5, "Checking guardrails..."),
 )
-_COMMAND_TAG = "agent-config-hook-v1"
+_COMMAND_TAG = "onbelay-hook-v1"
 _OUR_COMMAND = re.compile(
     r"^: " + re.escape(_COMMAND_TAG) + r":([\w.-]+); if test -f (.+); "
     r"then exec python3 \2; fi; exit 0$")

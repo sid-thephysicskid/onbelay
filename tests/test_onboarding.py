@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CLI = os.path.join(ROOT, "bin", "agent-config.js")
+CLI = os.path.join(ROOT, "bin", "onbelay.js")
 WORKFLOW = (
     "navigate", "prototype", "bootstrap", "setup", "to-spec", "breakdown",
     "domain-modeling", "architect", "tdd", "diagnose", "review", "unstick",
@@ -24,7 +24,7 @@ class OnboardingTest(unittest.TestCase):
             os.environ,
             HOME=home,
             PYTHONDONTWRITEBYTECODE="1",
-            AGENT_CONFIG_NONINTERACTIVE="1",
+            ONBELAY_NONINTERACTIVE="1",
         )
         run_env.update(env or {})
         return subprocess.run(
@@ -81,7 +81,7 @@ class OnboardingTest(unittest.TestCase):
                                    (codex, "My Codex preferences.")):
                 text = Path(path).read_text(encoding="utf-8")
                 self.assertIn(original, text)
-                self.assertEqual(text.count("agent-config:start"), 1)
+                self.assertEqual(text.count("onbelay:start"), 1)
 
             self.run_cli(home, "uninstall")
             self.assertEqual(Path(claude).read_text(encoding="utf-8"),
@@ -94,7 +94,7 @@ class OnboardingTest(unittest.TestCase):
             os.makedirs(os.path.join(home, ".claude"))
             instructions = os.path.join(home, ".claude", "CLAUDE.md")
             Path(instructions).write_text(
-                "mine\n<!-- agent-config:start -->\nbroken\n", encoding="utf-8")
+                "mine\n<!-- onbelay:start -->\nbroken\n", encoding="utf-8")
             result = self.run_cli(home, "install", check=False)
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(os.path.lexists(
@@ -196,7 +196,7 @@ class OnboardingTest(unittest.TestCase):
                 ["bash", os.path.join(ROOT, "install.sh"), "standard"],
                 cwd=ROOT,
                 env=dict(os.environ, HOME=home, CLAUDE_CONFIG_DIR=claude_home,
-                         CODEX_HOME=codex_home, AGENT_CONFIG_NONINTERACTIVE="1"),
+                         CODEX_HOME=codex_home, ONBELAY_NONINTERACTIVE="1"),
                 text=True,
                 capture_output=True,
                 check=True,

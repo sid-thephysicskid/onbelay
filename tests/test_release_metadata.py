@@ -18,7 +18,7 @@ class ReleaseMetadataTest(unittest.TestCase):
         with open(os.path.join(ROOT, "package.json")) as fh:
             package = json.load(fh)
         self.assertEqual(package["version"], version)
-        self.assertEqual(package["name"], "@sid-thephysicskid/agent-config")
+        self.assertEqual(package["name"], "@sid-thephysicskid/onbelay")
         self.assertEqual(package["publishConfig"]["access"], "public")
 
     def test_npm_publish_uses_oidc_and_a_public_release(self):

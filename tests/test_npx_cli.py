@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CLI = os.path.join(ROOT, "bin", "agent-config.js")
+CLI = os.path.join(ROOT, "bin", "onbelay.js")
 # From the file that owns it. This was written out five times, so a
 # release meant five edits and a red suite until all five were found.
 VERSION = open(os.path.join(ROOT, "VERSION")).read().strip()
@@ -53,7 +53,7 @@ class NpxCliTest(unittest.TestCase):
     def test_guard_round_trip_uses_stable_versioned_payload(self):
         with tempfile.TemporaryDirectory() as home:
             result = self.run_cli(home, "install", "guard")
-            stable = os.path.join(home, ".local", "share", "agent-config", VERSION)
+            stable = os.path.join(home, ".local", "share", "onbelay", VERSION)
             self.assertEqual(result.returncode, 0)
             self.assertTrue(os.path.isfile(os.path.join(stable, "install.sh")))
             hook = os.path.join(home, ".claude", "hooks", "guard-bash.py")
@@ -84,7 +84,7 @@ class NpxCliTest(unittest.TestCase):
             os.remove(broken)
             result = self.run_cli(home, "doctor", check=False)
             self.assertEqual(result.returncode, 1)
-            self.assertIn("npx @sid-thephysicskid/agent-config", result.stdout)
+            self.assertIn("npx @sid-thephysicskid/onbelay", result.stdout)
             self.assertNotIn("./install.sh", result.stdout)
 
     def test_doctor_rejects_extras_with_an_explicit_profile(self):
@@ -110,7 +110,7 @@ class NpxCliTest(unittest.TestCase):
     def test_existing_staged_payload_must_match_the_package(self):
         with tempfile.TemporaryDirectory() as home:
             self.run_cli(home, "install", "guard")
-            staged = os.path.join(home, ".local", "share", "agent-config",
+            staged = os.path.join(home, ".local", "share", "onbelay",
                                   VERSION, "install.sh")
             with open(staged, "a", encoding="utf-8") as fh:
                 fh.write("\n# tampered\n")
@@ -127,7 +127,7 @@ class NpxCliTest(unittest.TestCase):
             check=True,
         )
         files = {entry["path"] for entry in packed(result.stdout)["files"]}
-        self.assertIn("bin/agent-config.js", files)
+        self.assertIn("bin/onbelay.js", files)
         self.assertIn("hooks/guard-bash.py", files)
         self.assertIn("skills/ship/SKILL.md", files)
         self.assertIn("scripts/manage_conflicts.py", files)
@@ -157,7 +157,7 @@ class NpxCliTest(unittest.TestCase):
                        npm_config_cache=os.path.join(directory, "npm-cache"))
             executed = subprocess.run(
                 ["npx", "--yes", "--package", tarball,
-                 "agent-config", "--version"],
+                 "onbelay", "--version"],
                 cwd=directory,
                 env=env,
                 text=True,
@@ -188,16 +188,16 @@ class NpxCliTest(unittest.TestCase):
             env = dict(os.environ, HOME=home,
                        npm_config_cache=os.path.join(directory, "npm-cache"),
                        PYTHONDONTWRITEBYTECODE="1")
-            prefix = ["npx", "--yes", "--package", tarball, "agent-config"]
+            prefix = ["npx", "--yes", "--package", tarball, "onbelay"]
             subprocess.run(prefix + ["install", "--replace-conflicts"], cwd=directory, env=env,
                            text=True, capture_output=True, check=True)
             hook = os.path.join(home, ".claude", "hooks", "guard-bash.py")
-            stable = os.path.join(home, ".local", "share", "agent-config", VERSION)
+            stable = os.path.join(home, ".local", "share", "onbelay", VERSION)
             self.assertTrue(os.path.islink(hook))
             self.assertTrue(os.readlink(hook).startswith(stable + os.sep))
             self.assertTrue(os.path.islink(os.path.join(
                 home, ".claude", "skills", "ship")))
-            self.assertIn("agent-config:start", Path(instructions).read_text(
+            self.assertIn("onbelay:start", Path(instructions).read_text(
                 encoding="utf-8"))
             subprocess.run(prefix + ["doctor"], cwd=directory, env=env,
                            text=True, capture_output=True, check=True)
@@ -214,7 +214,7 @@ class NpxCliTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unknown install option", result.stderr)
             self.assertFalse(os.path.exists(os.path.join(home, ".local", "share",
-                                                        "agent-config")))
+                                                        "onbelay")))
 
 
 if __name__ == "__main__":

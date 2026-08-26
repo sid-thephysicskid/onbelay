@@ -32,7 +32,7 @@ from guard_secrets import READ_SAFE_SECRET, _is_secret_path
 MIDDLE_SIGNALS = (
     r"\.(claude|codex)/(hooks|settings\.json|settings\.local\.json|hooks\.json)",
     r"\.git/(config|hooks|HEAD|refs)",
-    r"\.local/share/agent-config",
+    r"\.local/share/onbelay",
 )
 
 _GIT_CONTROL = re.compile(
@@ -51,19 +51,19 @@ GUARD_OWN_FILES = re.compile(
 
 
 # The npm install, which the README recommends, COPIES the payload to
-# ~/.local/share/agent-config/<version>/ and leaves ~/.claude/hooks/*.py as
+# ~/.local/share/onbelay/<version>/ and leaves ~/.claude/hooks/*.py as
 # symlinks into it. Protecting only the symlink location protected only the
 # spelling nobody uses: `rm ~/.claude/hooks/guard_rules.py` was refused while
-# `rm -rf ~/.local/share/agent-config` removed the whole guard and was
+# `rm -rf ~/.local/share/onbelay` removed the whole guard and was
 # allowed. An agent does not have to be clever to land on the real path;
 # `readlink -f` is an ordinary command and every editor resolves symlinks on
 # its own. And because the hook shim exits 0 when its file is missing, the
 # result is a machine with no guard and no message saying so.
 #
-# Hardcoded rather than read from XDG_DATA_HOME because bin/agent-config.js:44
+# Hardcoded rather than read from XDG_DATA_HOME because bin/onbelay.js:44
 # and install.sh:313 both hardcode it too. If that ever becomes configurable,
 # this has to move with it.
-PAYLOAD_ROOT = "~/.local/share/agent-config"
+PAYLOAD_ROOT = "~/.local/share/onbelay"
 
 
 def _is_guard_control_path(path):

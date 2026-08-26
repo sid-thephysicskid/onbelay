@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Add, check, or remove Agent Config's bounded instruction block."""
+"""Add, check, or remove On Belay's bounded instruction block."""
 
 import os
 import sys
 import tempfile
 
 
-START = "<!-- agent-config:start -->"
-END = "<!-- agent-config:end -->"
+START = "<!-- onbelay:start -->"
+END = "<!-- onbelay:end -->"
 
 
 def target(path):
@@ -36,7 +36,7 @@ def split_managed(text):
     if START not in text and END not in text:
         return text, None
     if text.count(START) != 1 or text.count(END) != 1:
-        raise ValueError("instruction file has malformed agent-config markers")
+        raise ValueError("instruction file has malformed onbelay markers")
     before, rest = text.split(START, 1)
     _managed, after = rest.split(END, 1)
     return before + after, True
@@ -47,7 +47,7 @@ def save(path, text):
     directory = os.path.dirname(destination) or "."
     os.makedirs(directory, exist_ok=True)
     mode = os.stat(destination).st_mode & 0o777 if os.path.exists(destination) else 0o644
-    fd, temporary = tempfile.mkstemp(prefix=".agent-config-instructions-", dir=directory)
+    fd, temporary = tempfile.mkstemp(prefix=".onbelay-instructions-", dir=directory)
     try:
         os.fchmod(fd, mode)
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
