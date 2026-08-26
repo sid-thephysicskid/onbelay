@@ -4,7 +4,8 @@ import os
 import re
 import shlex
 
-from guard_parse import (
+from guard_parse import (  # noqa: F401
+    asks_for_help,
     GLOBBED,
     _brace_fragments,
     _is_dot_walk,
@@ -82,9 +83,19 @@ def check_rm(seg):
             return ("a find that deletes .git directories (destroys the repositories).",
                     "if you meant to discard a clone, delete its parent directory instead")
     toks = tokens(seg)
-    if not any(os.path.basename(t) == "rm" for t in toks):
+    # `git rm` is a git SUBCOMMAND, not coreutils rm. It removes paths from the
+    # index, and `git rm -r --cached .` deletes nothing from disk at all: it is
+    # the standard recipe for re-applying .gitignore. Matching any token whose
+    # basename is `rm` reported "rm -rf on the whole current directory" for a
+    # command that touches no file. Segments are already split on `;`, `&&` and
+    # `|`, so a `git` anywhere before the `rm` in THIS segment is that git.
+    def _coreutils_rm(i):
+        return os.path.basename(toks[i]) == "rm" and not any(
+            os.path.basename(t) == "git" for t in toks[:i])
+    rm_at = [i for i in range(len(toks)) if _coreutils_rm(i)]
+    if not rm_at:
         return None
-    idx = next(i for i, t in enumerate(toks) if os.path.basename(t) == "rm")
+    idx = rm_at[0]
     flags = "".join(t for t in toks[idx + 1:] if t.startswith("-"))
     if not re.search(r"[rRf]", flags):
         return None
@@ -161,6 +172,17 @@ def check_xargs_rm(cmd):
     return None
 
 
+def _glob_means_everything(comp):
+    """Does this path component match every entry in its directory?
+
+    `*`, `.*`, `.??*` and `.[a-z]*` do. `*.log` and `build*` do not: they leave
+    a literal behind once the metacharacters are gone, so they select a subset
+    and the parent directory is not what is being deleted.
+    """
+    bare = re.sub(r"\[[^\]]*\]", "", comp).replace("*", "").replace("?", "")
+    return bare in ("", ".")
+
+
 def _rm_target_verdict(t):
     """Judge ONE expanded rm operand."""
     if _is_whole_tree(t) or _is_dot_walk(t):
@@ -169,7 +191,19 @@ def _rm_target_verdict(t):
     p = normalize_path(t)
     # Strip a trailing glob COMPONENT, not just the literal `/*`:
     # `~/.*`, `~/.[a-z]*` and `~/.??*` all mean "everything in home".
-    base = re.sub(r"/[^/]*[*?\[][^/]*/?$", "", p) if GLOBBED.search(p) else p
+    #
+    # ...but ONLY when the component really does mean everything. Stripping any
+    # globbed component collapsed `rm -rf ./*.log` to `.` and refused it as
+    # "the whole current directory", while the identical `rm -rf *.log` with no
+    # `./` was allowed: the same command, judged two ways, and the spelling
+    # people use in a Makefile was the one that lost. A component with a
+    # literal part left after the metacharacters selects a subset, so the
+    # operand is the glob itself, not its parent.
+    base = p
+    if GLOBBED.search(p):
+        mm = re.search(r"/([^/]*[*?\[][^/]*)/?$", p)
+        if mm and _glob_means_everything(mm.group(1)):
+            base = re.sub(r"/[^/]*[*?\[][^/]*/?$", "", p)
     base = normalize_path(base) if base != p else p
     if base in ("", "."):
         # Also the only thing catching `rm -rf /*`: the glob strip leaves an
@@ -376,11 +410,10 @@ def check_deploy(seg):
 # command is how you learn to use it safely, and refusing that teaches the agent
 # the tool is untouchable rather than that the ACT is. Long form only: `-h` is
 # the host flag for every database client.
-HELP_ONLY = re.compile(r"(^|\s)--help(\s|$)")
 
 
 def check_tools(seg):
-    if HELP_ONLY.search(seg):
+    if asks_for_help(seg):
         return None
     hit = check_deploy(seg)
     if hit:

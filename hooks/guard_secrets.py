@@ -235,6 +235,20 @@ def is_secret_candidate(tok):
 # and it was blocked while the `cp` spelling was allowed.
 SAFE_COPY = re.compile(r"^\s*(cp|mv|install|cat)\b")
 
+# Every exemption below is ^-anchored on the head, so ONE package-runner prefix
+# defeated all of them at once: `dotenv -e .env -- npm run dev` is pinned as
+# allowed, and `npx dotenv -e .env -- npm run dev`, which is how people
+# actually type it, was refused.
+#
+# Stripped here and nowhere else, deliberately. These do NOT go in WRAPPERS:
+# that list is stripped for every rule, and it would take `npm` off the front
+# of `npm publish`, which the publish rule is anchored on. A prefix that is
+# inert for one rule is load-bearing for another.
+PKG_RUNNER = re.compile(
+    r"^\s*(npx|pnpx|bunx"
+    r"|(pnpm|yarn|bun)\s+(exec|dlx|run)"
+    r"|(uv|poetry|pipenv|rye|hatch|pdm)\s+run)\s+")
+
 SSH_KEYGEN = re.compile(r"^\s*ssh-keygen\b")
 
 # A key passed as an identity flag is used for authentication, never printed.
@@ -257,6 +271,27 @@ EXISTENCE_TEST = re.compile(r"^\s*(test|\[\[?)\s+(!\s+)?-[efdrswx]\b")
 
 # Metadata-only operations. They never read contents.
 METADATA_ONLY = re.compile(r"^\s*(ls|stat|chmod|chown|mkdir|touch|file|wc|find)\b")
+
+# Naming a secret file is not disclosing it. These heads delete it, ask git
+# about it, or hand it to the user's own editor. None of them put the contents
+# anywhere the agent or a transcript can see, which is what this rule exists to
+# stop. Refusing them taught nobody anything and cost a lot: `rm .env.local`,
+# `git rm --cached .env` (the standard remediation for a secret that reached a
+# commit) and `vim .env` are daily, and the fix line they printed, "use the
+# .example variant for variable names", is not advice for any of them.
+#
+# `git add` is deliberately NOT here. Staging a real .env is precisely how a
+# secret gets into a commit, so that one goes on being refused.
+#
+# `git diff`, `git show` and `git log -p` are deliberately NOT here either.
+# They PRINT the contents, which is the same act as `cat` with extra steps.
+NON_DISCLOSING = re.compile(
+    r"^\s*("
+    r"rm|unlink|shred|rmdir"
+    r"|vi|vim|nvim|nano|emacs|micro|hx|helix|pico|code|codium|subl|open"
+    r"|direnv"
+    r"|git\s+(check-ignore|status|ls-files|rm)"
+    r")\b")
 
 # A find that RUNS something is not metadata-only: it can cat, copy, or delete
 # whatever it matched. `find . -name .env -exec cat {} +` read every one.
@@ -401,6 +436,9 @@ def check_secrets_cmd(seg, loose=True, piped=False, stripped=None):
     conditional idiom in shell was blocked.
     """
     head = seg if stripped is None else stripped
+    # See PKG_RUNNER: the runner is not the command, and every test
+    # below is asking what the command is.
+    head = PKG_RUNNER.sub("", head)
     if SSH_KEYGEN.match(head) or EXISTENCE_TEST.match(head) or SSH_KEY_TOOL.match(head):
         return None
     # Which flags name a credential to authenticate WITH on THIS command.
@@ -432,6 +470,11 @@ def check_secrets_cmd(seg, loose=True, piped=False, stripped=None):
         for flag in ("--key", "--cert"):
             identity_flags.discard(flag)
     if METADATA_ONLY.match(head) and not FIND_ACTS.search(seg) and not piped:
+        return None
+    # Same bargain as METADATA_ONLY above, `not piped` included: `piped` means
+    # this segment feeds a CONTENT reader, and a head that discloses nothing on
+    # its own is a different question once its output is being read.
+    if NON_DISCLOSING.match(head) and not piped:
         return None
     # A searcher's first non-flag operand is its PATTERN. `ls -la | grep .env`
     # reads no file at all, and blocking it taught the agent that looking for

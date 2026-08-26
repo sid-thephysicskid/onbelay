@@ -45,6 +45,38 @@ def _alt(names):
 # a loose match once let `ssh -c <cipher>` be read as a shell.
 _RUNNERS = _alt(RUNNER_NAMES)
 
+# `--help` prints documentation and runs nothing. This lives here rather than
+# in a rule module because two of them need it and the import arrow between
+# them only points one way: guard_tools imports guard_git, so guard_git can
+# never import it back. A second copy is how the four spellings of
+# RUNNER_NAMES drifted, and this is the same shape.
+def asks_for_help(seg):
+    """`--help` as a FLAG, or `git help <topic>`. Not as an ARGUMENT.
+
+    Everything after `--` is an operand, not an option, so
+    `git commit -m pwn -- --help` is a commit whose pathspec happens to be the
+    string `--help`. A substring test for `--help` read that as documentation
+    and handed back a free bypass of every rule in the file. The corpus pins
+    it; the first spelling of this exemption failed that case, which is the
+    whole reason the paired cases exist.
+    """
+    toks = tokens(seg)
+    for tok in toks:
+        if tok == "--":
+            break
+        if tok == "--help":
+            return True
+    # `git help rebase`. The subcommand position only: a bare `help` token
+    # anywhere would match `git commit -m x -- git help`, which is the same
+    # trap in a different spelling.
+    for i, tok in enumerate(toks):
+        if os.path.basename(tok) == "git":
+            for nxt in toks[i + 1:]:
+                if nxt.startswith("-"):
+                    continue
+                return nxt == "help"
+    return False
+
 # Commands whose arguments are prose or search patterns, not instructions.
 # Applied PER SEGMENT.
 # An `echo`/`printf` whose output feeds an interpreter is not prose. The SQL

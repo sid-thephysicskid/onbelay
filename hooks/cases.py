@@ -142,6 +142,94 @@ CMD_CASES = [
     ('git commit -m "chore: initial commit"', VIRGIN, False),
 ]
 
+
+# Over-blocking found by a false-positive sweep over 1,042 safe commands.
+# Each pair is one loosened rule and the hazard it must still catch, because a
+# rule that was widened without its paired case is a rule nobody can widen
+# again safely.
+CMD_CASES += [
+    # Naming a secret file is not disclosing it. The whole point of the rule is
+    # disclosure, and the fix line it printed ("use the .example variant") was
+    # not advice for any of these.
+    ('rm .env.local', FEAT, False),
+    ('rm -f .env.test', FEAT, False),
+    ('unlink .env', FEAT, False),
+    ('shred -u .env', FEAT, False),
+    ('vim .env', FEAT, False),
+    ('code .env', FEAT, False),
+    ('nano .env', FEAT, False),
+    ('open .env', FEAT, False),
+    ('direnv allow .envrc', FEAT, False),
+    ('git check-ignore .env', FEAT, False),
+    ('git status --porcelain .env', FEAT, False),
+    ('git ls-files --error-unmatch .env', FEAT, False),
+    # ...the standard remediation for a secret that reached a commit.
+    ('git rm --cached .env', FEAT, False),
+    # ...and the hazards those must not have opened. `git add` stages the real
+    # file, which is how a secret gets INTO a commit. diff/show/log -p PRINT it.
+    ('git add .env', FEAT, True, 'holds live secrets'),
+    ('git diff .env', FEAT, True, 'holds live secrets'),
+    ('git show HEAD:.env', FEAT, True, 'holds live secrets'),
+    ('cat .env', FEAT, True, 'holds live secrets'),
+    ('less .env', FEAT, True, 'holds live secrets'),
+
+    # A package runner is not the command. Every exemption in check_secrets_cmd
+    # is ^-anchored on the head, so one prefix defeated all of them at once.
+    ('npx dotenv -e .env -- npm run dev', FEAT, False),
+    ('pnpm exec dotenv -e .env -- npm run dev', FEAT, False),
+    # ...but the prefix must not strip the head off a rule anchored ON it.
+    ('npm publish', FEAT, True, 'publish'),
+    ('npx vercel --prod', FEAT, True, 'production deploy'),
+
+    # A config line with nothing after the key is a READ, and --unset REMOVES
+    # the hazard. `git config --list` was allowed the whole time, so refusing
+    # these made the rule inconsistent as well as wrong.
+    ('git config --get core.hooksPath', FEAT, False),
+    ('git config core.hooksPath', FEAT, False),
+    ('git config --unset core.hooksPath', FEAT, False),
+    ('git config --get alias.co', FEAT, False),
+    ('git config --unset alias.wip', FEAT, False),
+    ('git config core.hooksPath .githooks', FEAT, True, 'hooks directory'),
+    ('git config alias.x "commit -am pwn"', FEAT, True, 'alias'),
+
+    # Documentation runs nothing. check_tools had this exemption; check_git
+    # never did. `--help` AFTER `--` is an operand, not a flag: reading it as
+    # documentation is a free bypass of every rule in the file.
+    ('git filter-branch --help', FEAT, False),
+    ('git help filter-branch', FEAT, False),
+    ('git commit -m pwn -- --help', MAIN, True, 'commit'),
+    ('git push --force origin main -- --help', FEAT, True, 'force push'),
+
+    # `git rm` is a git subcommand. `git rm -r --cached .` deletes nothing from
+    # disk; it is the standard way to re-apply .gitignore.
+    ('git rm -r --cached .', FEAT, False),
+    ('git rm -r --cached node_modules', FEAT, False),
+    ('rm -rf .', FEAT, True, 'whole current directory'),
+
+    # A glob with a literal left after the metacharacters selects a subset, so
+    # the operand is the glob, not its parent. `rm -rf ./*.log` and
+    # `rm -rf *.log` are the same command and were judged two different ways.
+    ('rm -rf ./*.log', FEAT, False),
+    ('rm -f ./*.log', FEAT, False),
+    ('rm -rf ./build/*', FEAT, False),
+    ('rm -rf ./*', FEAT, True, 'whole current directory'),
+    ('rm -rf /*', FEAT, True),
+    ('rm -rf ~/.*', FEAT, True),
+    ('rm -rf ~/.??*', FEAT, True),
+
+    # The shape every new project starts with, and the one `bootstrap` emits.
+    # The hook runs before the command, so the directory is not there yet.
+    ('mkdir -p app && cd app && git init && git commit -m init', MAIN, False),
+    ('mkdir app && cd app && git init && git add . && git commit -m init', FEAT, False),
+    ('mkdir -p /tmp/newproj && cd /tmp/newproj && git init && git commit -m i', MAIN, False),
+    # ...and the hazard that carve-out must not open. A new subdirectory of the
+    # CURRENT repo is still the current repo, so a commit there lands on the
+    # protected branch. No `git init`, no carve-out.
+    ('mkdir sub && cd sub && git commit -m x', MAIN, True, 'commit'),
+    ('mkdir -p sub && cd sub && git commit -am x', MAIN, True, 'commit'),
+    ('cd nonexistent-dir && git commit -m x', MAIN, True),
+]
+
 PATH_CASES = [
     ('/app/.env', False, True),
     ('/app/.env.production.local', False, True),

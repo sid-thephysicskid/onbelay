@@ -363,8 +363,30 @@ def _phase_cd(line, idx):
         # is legitimate. ONLY a `git init` counts: letting `mkdir` count made
         # check_git find no repo there and drop protection outright, so
         # `mkdir sub && cd sub && git commit` was allowed on main.
+        # A `git init` LATER on this line will create the target: the hook
+        # runs before the command does, so isdir() is false while the cd is
+        # perfectly legitimate. This is the shape every new project starts
+        # with, and it is what `bootstrap` emits:
+        #
+        #     mkdir app && cd app && git init && git commit -m init
+        #
+        # Look FORWARD for that init rather than trusting the `mkdir`. The
+        # mkdir is not what makes this safe; the init is. Letting mkdir count
+        # made check_git find no repo at the new path and drop protection
+        # outright, so `mkdir sub && cd sub && git commit` was allowed on a
+        # protected branch, which is the exact hazard this comment used to
+        # warn about. With the init required, that line has no init to find
+        # and still fails closed.
+        #
+        # cand_norm is the base for the look-ahead because a bare `git init`
+        # in a later segment runs AFTER this cd, so it inits this directory.
+        ahead = set()
+        if not os.path.isdir(cand) and cand_norm not in line.virgin_dirs:
+            for nxt in line.segs[idx + 1:]:
+                _note_git_init(nxt, cand_norm, ahead)
         line.cwd_stack[depth] = cand_norm if (
-            os.path.isdir(cand) or cand_norm in line.virgin_dirs) else UNKNOWN
+            os.path.isdir(cand) or cand_norm in line.virgin_dirs
+            or cand_norm in ahead) else UNKNOWN
         return SKIP
     return None
 
