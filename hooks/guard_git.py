@@ -15,7 +15,8 @@ from guard_repo import (  # noqa: F401
     rebase_in_progress,
     reset_state,
 )
-from guard_parse import (
+from guard_parse import (  # noqa: F401
+    asks_for_help,
     normalize_path,
     strip_quoted,
     tokens,
@@ -299,10 +300,17 @@ DESTRUCTIVE_GIT = (
     # damage is done by what runs afterwards.
     # `(^|\s)-c`, not `\b-c`: there is no word boundary between a space and a
     # hyphen, so the `\b` form never matched the flag at all.
-    (r"(^|\s)-c\s+alias\.|(^|\s)config\b[^\n]{0,40}\balias\.",
+    # `\S*\s+\S` on the config half: a config line with nothing after the key
+    # is a READ, and `--unset` REMOVES the hazard. Matching the key alone
+    # refused `git config --get core.hooksPath`, which is the first thing
+    # anyone runs when a hook will not fire, and `git config --unset alias.wip`,
+    # which is the fix. `git config --list` was allowed the whole time, so the
+    # rule was inconsistent as well as wrong. The `-c` half needs no such test:
+    # it carries its value inline as `-c alias.x=...`.
+    (r"(^|\s)-c\s+alias\.|(^|\s)config\b[^\n]{0,40}\balias\.\S*\s+\S",
      "defining a git alias (an alias runs a different command than the one written)",
      "run the command you mean, spelled out"),
-    (r"(^|\s)config\b[^\n]{0,40}\bcore\.hooksPath\b",
+    (r"(^|\s)config\b[^\n]{0,40}\bcore\.hooksPath\b\s+\S",
      "repointing git's hooks directory (every later git command runs code from there)",
      "leave core.hooksPath alone; put repo hooks in .git/hooks yourself"),
     # Both spellings, in either order. The long-flag-only form let `git worktree
@@ -402,6 +410,11 @@ def _restore_touches_worktree(seg):
 def check_git(seg, cwd, branch_override=None, unknown_cwd=False, virgin_dirs=()):
     if len(seg) > MAX_SEGMENT_SCAN:
         seg = seg[:MAX_SEGMENT_SCAN]
+    # Documentation runs nothing. check_tools has had this exemption for as long
+    # as it has existed; check_git never got it, so `git filter-branch --help`
+    # was refused as a history rewrite and `git help filter-branch` with it.
+    if asks_for_help(seg):
+        return None
     calls = git_invocations(seg)
     if not calls:
         # A version bumper runs no `git` of its own, so the loop below never
