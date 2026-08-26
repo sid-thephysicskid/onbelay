@@ -1216,7 +1216,8 @@ cp -R "$REPO_SRC" "$S/oldrepo"; rm -rf "$S/oldrepo/.git"
 H="$S/h79"; mkdir -p "$H"
 HOME="$H" bash "$S/oldrepo/install.sh" --extras >/dev/null 2>&1
 chk "extras installed from the old root" \
-  "$(ls "$H/.claude/skills" | grep -cE '^(research|wizard|handoff)$')" "3"
+  "$(find "$H/.claude/skills" -maxdepth 1 -mindepth 1 \
+     \( -name research -o -name wizard -o -name handoff \) | wc -l | tr -d ' ')" "3"
 # The upgrade, WITHOUT --extras. This is the npx `install` path.
 HOME="$H" bash "$S/repo/install.sh" standard >/dev/null 2>&1
 chk "no link is left bound to the old root" \
