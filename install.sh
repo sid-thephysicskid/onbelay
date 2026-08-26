@@ -100,14 +100,33 @@ INSTALL_OPERATOR=0
   && _bad_arg "--baseline and --skills-only require the workflow or full profile."
 INSTALL_BASELINE=0
 REMOVE_AUTO_BASELINE=0
-SKILL_ROOTS=()
-(( INSTALL_WORKFLOW )) && SKILL_ROOTS+=("$REPO/skills")
-(( INSTALL_OPERATOR )) && SKILL_ROOTS+=("$REPO/operator-skills")
 WORKFLOW_SKILLS=(navigate prototype bootstrap setup to-spec breakdown domain-modeling architect tdd diagnose review unstick ship)
 OPERATOR_SKILLS=(research wizard handoff)
 
 CLAUDE_ROOT="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
+
+# An extras skill already linked here means a PREVIOUS install was asked for
+# the extras. Deriving INSTALL_OPERATOR from the profile alone made an upgrade
+# ignore them, which left those eight links bound to the previous install root:
+# not migrated, and not removed either. Nothing reported it while that root
+# still existed, because the links still resolved; the first signal was doctor
+# failing after the root was deleted, by which point the skills were already
+# gone. Adopting what is installed is what makes the README's "re-running the
+# command repairs or upgrades the installation" true for everything it owns.
+#
+# Gated on INSTALL_WORKFLOW so `install guard` stays exactly what it says: a
+# guard-only profile does not start pulling in skills because some are present.
+if (( INSTALL_WORKFLOW && ! INSTALL_OPERATOR )); then
+  for _s in "${OPERATOR_SKILLS[@]}"; do
+    [[ -L "$CLAUDE_ROOT/skills/$_s" ]] && { INSTALL_OPERATOR=1; break; }
+  done
+fi
+
+SKILL_ROOTS=()
+(( INSTALL_WORKFLOW )) && SKILL_ROOTS+=("$REPO/skills")
+(( INSTALL_OPERATOR )) && SKILL_ROOTS+=("$REPO/operator-skills")
+
 COMPACT="${AGENT_CONFIG_COMPACT:-0}"
 
 ok()   { (( COMPACT )) || printf '  \033[32m✓\033[0m %s\n' "$1"; }
