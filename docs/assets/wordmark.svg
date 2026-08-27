@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 280" width="1000" height="280" role="img" aria-labelledby="t d">
+  <title id="t">On Belay</title>
+  <desc id="d">A rope dropping from an anchor and curving back to level: a fall being caught. Beside it the wordmark On Belay and the line: the rope does not stop the climb, it catches the fall.</desc>
+  <defs>
+    <style>
+      .ui   { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+      .rope   { fill: none; stroke: #f0883e; stroke-width: 13; stroke-linecap: round; }
+      .anchor { fill: none; stroke: #e6edf3; stroke-width: 10; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="280" rx="16" fill="#0d1117"/>
+
+  <!-- the anchor the rope runs through -->
+  <path class="anchor" d="M74 56 L 150 56"/>
+  <circle cx="112" cy="78" r="11" fill="none" stroke="#e6edf3" stroke-width="9"/>
+  <path class="anchor" d="M112 56 L 112 67"/>
+
+  <!-- the fall, and the catch: straight down, then arrested into level -->
+  <path class="rope" d="M112 89 L 112 150 C 112 194, 140 216, 186 216 L 236 216"/>
+
+  <text x="292" y="130" class="ui" font-size="66" font-weight="650" fill="#e6edf3" letter-spacing="-1.5">On Belay</text>
+  <text x="296" y="174" class="mono" font-size="19" fill="#7d8590">guardrails for coding agents</text>
+
+  <line x1="292" y1="202" x2="944" y2="202" stroke="#21262d" stroke-width="1.5"/>
+  <text x="292" y="236" class="ui" font-size="19" fill="#8b949e">The rope does not stop the climb. It catches the fall.</text>
+</svg>

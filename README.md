@@ -1,5 +1,9 @@
 # On Belay
 
+<p align="center">
+  <img src="docs/assets/wordmark.svg" width="820" alt="On Belay. A rope drops from an anchor and curves back to level: a fall being caught. Guardrails for coding agents. The rope does not stop the climb, it catches the fall.">
+</p>
+
 **Guardrails for coding agents, plus the workflow skills to keep them pointed at the right problem.**
 
 Your agent is fast, helpful, and about one command away from force-pushing your main branch. This sits in front of every tool call it makes. Ordinary work goes straight through. The handful of commands that ruin an afternoon get stopped, and the refusal tells the agent what to run instead.
