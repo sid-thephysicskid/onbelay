@@ -146,6 +146,17 @@ die()  {
 # uninstall then dutifully restores all 21 as dangling links, which is worse
 # than doing nothing, and reports success.
 ORIGINS="$CLAUDE_ROOT/.onbelay-origins"
+
+# A 0.3.x machine read as covered in files we did not write: no origins file
+# under the current name meant `_is_our_target` denied all 33 of our own links,
+# and install aborted asking the user to `mv` our own work. This has to run
+# before the first `_is_our_target` call, which is the baseline check below.
+# `|| true` because `set -e` turns an absent script into a bare exit 127 with
+# nothing printed. Only 0.3.x machines need this, so degrading to "no migration"
+# is survivable for everyone else; shipping it is enforced by the npx suite.
+MIGRATED="$(bash "$REPO/scripts/migrate-legacy.sh" "$CLAUDE_ROOT" "$CODEX_ROOT" \
+  "$CHECK" 2>/dev/null || true)"
+
 _is_our_target() {
   # PATH BOUNDARY, not a bare prefix. `$t == "$REPO"*` also matched any path
   # that merely shares a string prefix with the clone, so a user's own
@@ -445,6 +456,20 @@ if (( ! COMPACT )); then
   (( CHECK )) && echo "(check only, nothing will change)"
   echo
   echo "Preflight"
+fi
+
+if [[ -n "$MIGRATED" ]]; then
+  if (( CHECK )); then
+    # Say this BEFORE the per-path errors. Unexplained, they read as damage;
+    # they are one cause with one fix, and the reader deserves to know that
+    # before scrolling past a dozen of them.
+    warn "this machine still carries a 0.3.x (agent-config) install."
+    warn "the problems below are that rename, not damage. Installing migrates it."
+  else
+    while IFS= read -r _change; do
+      [[ -n "$_change" ]] && ok "migrated from agent-config: $_change"
+    done <<<"$MIGRATED"
+  fi
 fi
 
 GUARD_READY=1
@@ -1026,6 +1051,22 @@ report_workflow() {
     warn "Workflow active: $have/$total (the rest are skills you already had)"
   fi
 }
+
+# The superseded 0.3.x payload. Left behind, it is a second copy of the product
+# that `doctor` still finds through the migrated origins file, so the machine
+# keeps reporting a version it no longer runs. Only ever a staged payload, never
+# a user's clone, because a clone is never under this path. A link still
+# pointing in means the relink above did not adopt everything, and removing it
+# would break what is still running.
+LEGACY_PAYLOAD="$HOME/.local/share/agent-config"
+if (( ! CHECK )) && [[ -d "$LEGACY_PAYLOAD" ]]; then
+  if find "$CLAUDE_ROOT" "$CODEX_ROOT" -maxdepth 3 -type l \
+       -lname "$LEGACY_PAYLOAD/*" 2>/dev/null | grep -q .; then
+    warn "kept $LEGACY_PAYLOAD: something still links into it"
+  else
+    rm -rf "$LEGACY_PAYLOAD" && ok "removed the superseded agent-config payload"
+  fi
+fi
 
 (( COMPACT )) || echo
 if (( CHECK )); then

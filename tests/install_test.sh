@@ -1250,6 +1250,147 @@ HOME="$H" bash "$S/repo/install.sh" guard >/dev/null 2>&1
 chk "the guard profile still installs no skills" \
   "$(readlink "$H/.claude/skills/wizard")" "$S/oldrepo/operator-skills/wizard/"
 
+echo "== 80. a 0.3.x machine upgrades without being asked to move its own files =="
+# The rename to On Belay changed every name install uses to recognize its own
+# work: the origins file, the hook command tag, both settings backups, the
+# conflicts state and the payload root. A 0.3.x machine therefore looked, to
+# 0.4.0, like a machine covered in someone else's files. It aborted and asked
+# the user to `mv` twelve paths it had written itself.
+#
+# Build a real one: install from a 0.3.x-shaped payload root, then rename the
+# state it wrote to the names 0.3.x actually used.
+legacyize() {  # legacyize <fake home> -- turn a current install into a 0.3.x one
+  local h="$1" s="$1/.claude/settings.json" c="$1/.codex/hooks.json"
+  mv "$h/.claude/.onbelay-origins" "$h/.claude/.agent-config-origins"
+  [[ -f "$s.before-onbelay" ]] && mv "$s.before-onbelay" "$s.before-agent-config"
+  [[ -f "$s.onbelay-deny.json" ]] && mv "$s.onbelay-deny.json" "$s.agent-config-deny.json"
+  sed -i.bak 's/onbelay-hook-v1/agent-config-hook-v1/g' "$s"
+  sed -i.bak -e 's/onbelay-hook-v1/agent-config-hook-v1/g' \
+             -e 's/guardrails from onbelay/guardrails from agent-config/' "$c"
+  rm -f "$s.bak" "$c.bak"
+  return 0
+}
+
+H="$S/h80"; mkdir -p "$H"
+OLD="$H/.local/share/agent-config/0.3.0"
+mkdir -p "$(dirname "$OLD")"; cp -R "$S/oldrepo" "$OLD"
+HOME="$H" bash "$OLD/install.sh" full >/dev/null 2>&1
+chk "the 0.3.x install is in place" \
+  "$([ -L "$H/.claude/skills/ship" ] && echo yes || echo no)" "yes"
+legacyize "$H"
+chk "the fixture really is legacy-named" \
+  "$([ -f "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "yes"
+
+out="$(HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full 2>&1)"; code=$?
+chk "the upgrade succeeds" "$code" "0"
+chk "it does not abort" "$(grep -c 'ABORTED' <<<"$out")" "0"
+chk "it never asks the user to move their own files" "$(grep -c 'mv ' <<<"$out")" "0"
+chk "it does not treat our own skills as someone else's" \
+  "$(grep -c 'existing skill path' <<<"$out")" "0"
+
+chk "no link is left bound to the 0.3.x root" \
+  "$(find "$H" -maxdepth 5 -type l -lname "$OLD/*" 2>/dev/null | wc -l | tr -d ' ')" "0"
+chk "skills resolve to the new root" \
+  "$(readlink "$H/.claude/skills/ship")" "$S/repo/skills/ship/"
+chk "hooks resolve to the new root" \
+  "$(readlink "$H/.claude/hooks/guard-bash.py")" "$S/repo/hooks/guard-bash.py"
+chk "no dangling links anywhere" \
+  "$(find "$H/.claude" "$H/.codex" -maxdepth 3 -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')" "0"
+
+chk "the origins file carries its current name" \
+  "$([ -f "$H/.claude/.onbelay-origins" ] && echo yes || echo no)" "yes"
+chk "no agent-config-named state survives" \
+  "$(find "$H/.claude" "$H/.codex" -maxdepth 1 -name '*agent-config*' | wc -l | tr -d ' ')" "0"
+chk "the hook tag is current for Claude Code" \
+  "$(grep -c 'agent-config-hook-v1' "$H/.claude/settings.json")" "0"
+chk "the hook tag is current for Codex" \
+  "$(grep -c 'agent-config-hook-v1' "$H/.codex/hooks.json")" "0"
+chk "exactly one Bash guard hook" "$(python3 -c "
+import json;c=json.load(open('$H/.claude/settings.json'))
+e=[x for x in c['hooks']['PreToolUse'] if x['matcher']=='Bash'][0]
+print(len([h for h in e['hooks'] if 'guard-' in h['command']]))")" "1"
+chk "the 0.3.x payload root is gone" \
+  "$([ -e "$OLD" ] && echo yes || echo no)" "no"
+chk "--check is clean afterwards" \
+  "$(HOME="$H" bash "$S/repo/install.sh" full --check 2>&1 | grep -c '✗')" "0"
+
+echo "== 81. a 0.3.x machine can also be uninstalled =="
+# The same blind spot ran the other way: 0.4.0 could not cleanly REMOVE a
+# 0.3.x install either. There was no supported route off 0.3.x in any
+# direction, and the only remedy was to know that an old uninstall.sh was
+# buried in ~/.local/share and run it by hand.
+H="$S/h81"; mkdir -p "$H/.claude"
+OLD="$H/.local/share/agent-config/0.3.0"
+mkdir -p "$(dirname "$OLD")"; cp -R "$S/oldrepo" "$OLD"
+echo '{"theme":"dark"}' > "$H/.claude/settings.json"
+HOME="$H" bash "$OLD/install.sh" full >/dev/null 2>&1
+legacyize "$H"
+
+out="$(HOME="$H" bash "$S/repo/uninstall.sh" full 2>&1)"; code=$?
+chk "the uninstall succeeds" "$code" "0"
+chk "our skills are gone" \
+  "$([ -e "$H/.claude/skills/ship" ] && echo yes || echo no)" "no"
+chk "our hooks are gone" \
+  "$([ -e "$H/.claude/hooks/guard-bash.py" ] && echo yes || echo no)" "no"
+chk "no guard hook is left wired" \
+  "$(grep -c 'guard-bash' "$H/.claude/settings.json")" "0"
+chk "no guard is left in Codex" \
+  "$(grep -c 'guard-codex' "$H/.codex/hooks.json" 2>/dev/null || echo 0)" "0"
+chk "the user's own setting survives" "$(python3 -c "
+import json;print(json.load(open('$H/.claude/settings.json'))['theme'])")" "dark"
+chk "no dangling links left behind" \
+  "$(find "$H/.claude" "$H/.codex" -maxdepth 3 -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')" "0"
+chk "no agent-config-named state survives an uninstall" \
+  "$(find "$H/.claude" "$H/.codex" -maxdepth 1 -name '*agent-config*' | wc -l | tr -d ' ')" "0"
+
+echo "== 82. migration is a no-op for everyone who never ran 0.3.x =="
+# The cost of a migration step is that it runs on every install forever. It
+# must be invisible on a clean machine and safe to run twice.
+H="$S/h82"; mkdir -p "$H"
+out="$(HOME="$H" bash "$S/repo/install.sh" full 2>&1)"
+chk "a clean install says nothing about agent-config" \
+  "$(grep -ci 'agent-config' <<<"$out")" "0"
+chk "and leaves no legacy state" \
+  "$(find "$H" -maxdepth 4 -name '*agent-config*' | wc -l | tr -d ' ')" "0"
+out="$(HOME="$H" bash "$S/repo/install.sh" full 2>&1)"
+chk "a second run is still silent about it" \
+  "$(grep -ci 'agent-config' <<<"$out")" "0"
+
+# Twice over a legacy machine: the second run has nothing left to migrate.
+H="$S/h82b"; mkdir -p "$H"
+OLD="$H/.local/share/agent-config/0.3.0"
+mkdir -p "$(dirname "$OLD")"; cp -R "$S/oldrepo" "$OLD"
+HOME="$H" bash "$OLD/install.sh" full >/dev/null 2>&1
+legacyize "$H"
+HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full >/dev/null 2>&1
+out="$(HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full 2>&1)"; code=$?
+chk "the second upgrade succeeds" "$code" "0"
+chk "with nothing left to migrate" "$(grep -c 'migrated from agent-config' <<<"$out")" "0"
+chk "still exactly one Bash guard hook" "$(python3 -c "
+import json;c=json.load(open('$H/.claude/settings.json'))
+e=[x for x in c['hooks']['PreToolUse'] if x['matcher']=='Bash'][0]
+print(len([h for h in e['hooks'] if 'guard-' in h['command']]))")" "1"
+
+echo "== 83. --check reports a 0.3.x machine without changing it =="
+H="$S/h83"; mkdir -p "$H"
+OLD="$H/.local/share/agent-config/0.3.0"
+mkdir -p "$(dirname "$OLD")"; cp -R "$S/oldrepo" "$OLD"
+HOME="$H" bash "$OLD/install.sh" full >/dev/null 2>&1
+legacyize "$H"
+before="$(find "$H/.claude" "$H/.codex" -maxdepth 1 | sort | md5 2>/dev/null \
+  || find "$H/.claude" "$H/.codex" -maxdepth 1 | sort | md5sum)"
+out="$(HOME="$H" bash "$S/repo/install.sh" full --check 2>&1)"
+chk "it names the 0.3.x install as the cause" \
+  "$(grep -c '0.3.x (agent-config) install' <<<"$out")" "1"
+chk "it says installing is the fix" \
+  "$(grep -c 'Installing migrates it' <<<"$out")" "1"
+after="$(find "$H/.claude" "$H/.codex" -maxdepth 1 | sort | md5 2>/dev/null \
+  || find "$H/.claude" "$H/.codex" -maxdepth 1 | sort | md5sum)"
+chk "and changes nothing" "$before" "$after"
+chk "the legacy origins file is still there" \
+  "$([ -f "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "yes"
+chk "the 0.3.x payload is untouched" "$([ -d "$OLD" ] && echo yes || echo no)" "yes"
+
 echo
 echo "PASS $pass  FAIL $fail"
 [[ $fail -eq 0 ]] || exit 1
