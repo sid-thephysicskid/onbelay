@@ -2256,6 +2256,18 @@ CMD_CASES += [
     ('git commit -m "stop mv of ~/.claude/settings.json from being suggested"',
      FEAT, False),
     ("grep -rn 'rm ~/.claude/settings.json' docs/", FEAT, False),
+    # A mutating verb does not make a LATER command's argument its target.
+    # #36 called this a second defect; it is not, because segments() splits on
+    # ; && and | before any rule runs, so the verb and the path never share a
+    # segment. Pinned here because that is load-bearing and invisible from
+    # check_guard_mutation, which would look broken read on its own.
+    ('mv a b; cat ~/.claude/settings.json', FEAT, False),
+    ('rm /tmp/x && cat ~/.claude/settings.json', FEAT, False),
+    ('mv a b | tee /tmp/log; head ~/.claude/settings.json', FEAT, False),
+    # cp writes its LAST argument only, so reading a control file out is fine
+    # and writing one in is not. Both directions, or the asymmetry is untested.
+    ('cp ~/.claude/settings.json /tmp/backup', FEAT, False),
+    ('cp /tmp/x ~/.claude/settings.json', FEAT, True),
     ('npm install', FEAT, False),
     ('npm ci', FEAT, False),
     ('npm run build', FEAT, False),
