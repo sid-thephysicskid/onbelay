@@ -155,7 +155,7 @@ ORIGINS="$CLAUDE_ROOT/.onbelay-origins"
 # nothing printed. Only 0.3.x machines need this, so degrading to "no migration"
 # is survivable for everyone else; shipping it is enforced by the npx suite.
 MIGRATED="$(bash "$REPO/scripts/migrate-legacy.sh" "$CLAUDE_ROOT" "$CODEX_ROOT" \
-  $( ((CHECK)) && echo --check ) 2>/dev/null || true)"
+  "$CHECK" 2>/dev/null || true)"
 
 _is_our_target() {
   # PATH BOUNDARY, not a bare prefix. `$t == "$REPO"*` also matched any path

@@ -11,10 +11,11 @@
 # origins file is enough, because that is what ownership is decided from, and
 # the normal relink path then adopts every link on its own.
 #
-# Usage: migrate-legacy.sh <claude root> <codex root> [--check]
+# Usage: migrate-legacy.sh <claude root> <codex root> [check]
+# `check` is 1 to report without writing, matching install.sh's own CHECK.
 # Prints one line per change. Silent, exit 0, on a machine that never ran 0.3.x.
 set -uo pipefail
-C="$1"; X="$2"; CHECK=0; [[ "${3:-}" == --check ]] && CHECK=1
+C="${1:?claude root required}"; X="${2:?codex root required}"; CHECK="${3:-0}"
 
 # The origins file is a list of paths, so both lists have to survive; a
 # duplicate line is harmless because the reader stops at the first match. The
