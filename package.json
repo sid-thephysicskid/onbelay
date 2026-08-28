@@ -1,6 +1,6 @@
 {
   "name": "@sid-thephysicskid/onbelay",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Guardrails for coding agents, plus the workflow skills to keep them pointed at the right problem.",
   "license": "MIT",
   "author": "Sid Abhinav",

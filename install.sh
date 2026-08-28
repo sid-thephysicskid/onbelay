@@ -1052,20 +1052,34 @@ report_workflow() {
   fi
 }
 
-# The superseded 0.3.x payload. Left behind, it is a second copy of the product
-# that `doctor` still finds through the migrated origins file, so the machine
-# keeps reporting a version it no longer runs. Only ever a staged payload, never
-# a user's clone, because a clone is never under this path. A link still
-# pointing in means the relink above did not adopt everything, and removing it
-# would break what is still running.
-LEGACY_PAYLOAD="$HOME/.local/share/agent-config"
-if (( ! CHECK )) && [[ -d "$LEGACY_PAYLOAD" ]]; then
-  if find "$CLAUDE_ROOT" "$CODEX_ROOT" -maxdepth 3 -type l \
-       -lname "$LEGACY_PAYLOAD/*" 2>/dev/null | grep -q .; then
-    warn "kept $LEGACY_PAYLOAD: something still links into it"
+# Superseded payloads. Left behind, each is a second copy of the product that
+# `doctor` still finds through the origins file, so the machine keeps reporting
+# a version it no longer runs, and every release adds another one forever.
+#
+# Both share directories, because the 0.3.x fix that only knew the old name
+# left OUR own previous version sitting next to the new one. Only ever staged
+# payloads, never a user's clone: a clone is never under these paths, and $REPO
+# is skipped explicitly for the case where someone installs from one that is.
+# A link still pointing in means the relink above did not adopt everything, and
+# removing it would break what is still running.
+prune_payload() {  # prune_payload <dir>
+  [[ -d "$1" && "$1" != "$REPO" ]] || return 0
+  if find "$CLAUDE_ROOT" "$CODEX_ROOT" -maxdepth 3 -type l -lname "$1/*" \
+       2>/dev/null | grep -q .; then
+    warn "kept $1: something still links into it"
   else
-    rm -rf "$LEGACY_PAYLOAD" && ok "removed the superseded agent-config payload"
+    rm -rf "$1" && ok "removed the superseded $(basename "$1") payload"
   fi
+}
+if (( ! CHECK )); then
+  prune_payload "$HOME/.local/share/agent-config"
+  for _old in "$HOME"/.local/share/onbelay/*/; do
+    _old="${_old%/}"
+    [[ -f "$_old/VERSION" ]] || continue
+    [[ "$(cat "$_old/VERSION" 2>/dev/null)" == "$(cat "$REPO/VERSION")" ]] \
+      && continue
+    prune_payload "$_old"
+  done
 fi
 
 (( COMPACT )) || echo

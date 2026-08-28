@@ -2,6 +2,17 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-08-28
+
+### Fixed
+
+Superseded payloads are removed on upgrade. The 0.4.1 fix only knew the old
+`agent-config` directory, so upgrading left the previous On Belay version
+sitting in `~/.local/share/onbelay/` next to the new one, and every release
+would have added another. `doctor` can still find those through the origins
+file, so a machine could report a version it no longer runs. The payload
+being installed from is never removed.
+
 ## [0.4.1] - 2026-08-28
 
 ### Fixed
