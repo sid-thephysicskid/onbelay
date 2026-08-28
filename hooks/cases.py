@@ -2244,6 +2244,18 @@ CMD_CASES += [
 
 # ---- ORDINARY: everyday work that must not be ----
 CMD_CASES += [
+    # Text that MENTIONS a control path is not a write to it. Both of these
+    # were refused while fixing #35, so the guard blocked the work of fixing
+    # the guard: an agent could not file a bug about a hook, or write a test
+    # for one, without quoting a path that armed check_guard_mutation. The
+    # verb has to be real shell, not prose inside an argument. The two
+    # refusals below pin that the fix is not a weakening.
+    ("gh issue create --title x --body 'it printed: "
+     "mv ~/.claude/hooks/guard_db.py ~/.claude/hooks/guard_db.py.mine'",
+     FEAT, False),
+    ('git commit -m "stop mv of ~/.claude/settings.json from being suggested"',
+     FEAT, False),
+    ("grep -rn 'rm ~/.claude/settings.json' docs/", FEAT, False),
     ('npm install', FEAT, False),
     ('npm ci', FEAT, False),
     ('npm run build', FEAT, False),

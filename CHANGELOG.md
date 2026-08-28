@@ -6,6 +6,15 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ### Fixed
 
+Text that mentions a control path is no longer mistaken for a write to it.
+The mutation rule armed on any occurrence of `rm`, `mv`, `sed -i` and friends
+anywhere in a command, including inside a quoted argument, and then treated
+every token in that command as a target. Filing a bug that quoted an
+installer's own `mv` output was refused as an `mv`; so was writing a test
+whose fixture text mentions a config path. The verb must now be real shell
+rather than prose. Targets are still read from the whole command, so
+`rm "~/.claude/settings.json"` stays refused.
+
 Upgrading from 0.3.x works. The rename to On Belay changed every marker the
 installer uses to recognize its own work, so a 0.3.x machine read as covered in
 files we had not written: install aborted with `12 path(s) are occupied by

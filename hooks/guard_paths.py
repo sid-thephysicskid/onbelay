@@ -19,7 +19,7 @@ Python 3.9, stdlib only.
 import os
 import re
 
-from guard_parse import normalize_path, tokens
+from guard_parse import normalize_path, strip_quoted, tokens
 from guard_secrets import READ_SAFE_SECRET, _is_secret_path
 
 # Worth finding in the middle of an oversized command line. Every other rule
@@ -120,9 +120,21 @@ def check_guard_mutation(seg):
     removals happen inside it, where no tool call exists to inspect.
     """
     text = str(seg)
-    all_args = bool(_UNMAKE_ALL_ARGS.search(text)
-                    or _UNMAKE_IN_PLACE.search(text))
-    last_arg = bool(_UNMAKE_LAST_ARG.search(text))
+    # The VERB has to be real shell, not prose inside an argument. Searching
+    # the raw text meant any string that merely mentioned one armed the rule,
+    # and then every token in the segment became a candidate target: filing a
+    # bug that quoted an installer's own `mv` output was refused as an `mv`,
+    # and so was writing a test whose fixture text mentions a config path. The
+    # guard blocked the work of fixing the guard.
+    #
+    # Targets are still read from the FULL text, so `rm "~/.claude/settings.json"`
+    # with a quoted path stays refused. `bash -c '...'` is unaffected because
+    # segments() unwraps the payload into its own segment, where the verb is
+    # no longer quoted.
+    shell = strip_quoted(text)
+    all_args = bool(_UNMAKE_ALL_ARGS.search(shell)
+                    or _UNMAKE_IN_PLACE.search(shell))
+    last_arg = bool(_UNMAKE_LAST_ARG.search(shell))
     if not (all_args or last_arg):
         return None
     args = [t for t in tokens(text) if not t.startswith("-")]
