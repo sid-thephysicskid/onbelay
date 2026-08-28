@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@sid-thephysicskid/onbelay"><img alt="npm" src="https://img.shields.io/npm/v/%40sid-thephysicskid%2Fonbelay?style=flat-square&labelColor=0d1117&color=f0883e"></a>
   <a href="https://github.com/sid-thephysicskid/onbelay/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sid-thephysicskid/onbelay/ci.yml?branch=main&style=flat-square&labelColor=0d1117&label=ci"></a>
-  <img alt="test cases" src="https://img.shields.io/badge/test%20cases-1%2C968-3fb950?style=flat-square&labelColor=0d1117">
+  <img alt="test cases" src="https://img.shields.io/badge/test%20cases-1%2C973-3fb950?style=flat-square&labelColor=0d1117">
   <img alt="dependencies" src="https://img.shields.io/badge/runtime%20deps-0-3fb950?style=flat-square&labelColor=0d1117">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-8b949e?style=flat-square&labelColor=0d1117"></a>
 </p>
@@ -102,7 +102,7 @@ Two things to be straight about, because they decide whether this is useful to y
 
 **It fails open.** If a rule crashes, your agent keeps working and the failure gets logged where `doctor` will show it. A guard that bricks your CLI is worse than no guard.
 
-Behind that: 1,968 test cases. 759 of them exist to prove the guard does *not* fire, and 285 are ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
+Behind that: 1,973 test cases. 759 of them exist to prove the guard does *not* fire, and 285 are ordinary commands it may never refuse. Every rule has a case proving it fires. The allow side is not one-for-one, and it is the side I keep finding gaps in.
 
 ## The skills, and why each one exists
 
