@@ -1391,6 +1391,36 @@ chk "the legacy origins file is still there" \
   "$([ -f "$H/.claude/.agent-config-origins" ] && echo yes || echo no)" "yes"
 chk "the 0.3.x payload is untouched" "$([ -d "$OLD" ] && echo yes || echo no)" "yes"
 
+echo "== 84. a superseded payload of OUR OWN is pruned too =="
+# The 0.3.x fix only knew the old share directory, so upgrading left the
+# PREVIOUS onbelay version sitting next to the new one, and every release would
+# have added another forever. Found on a real machine after shipping 0.4.1:
+# 0.4.0 was still there.
+H="$S/h84"; mkdir -p "$H"
+PREV="$H/.local/share/onbelay/0.0.1"
+mkdir -p "$(dirname "$PREV")"; cp -R "$S/oldrepo" "$PREV"
+echo "0.0.1" > "$PREV/VERSION"
+HOME="$H" bash "$PREV/install.sh" full >/dev/null 2>&1
+chk "the previous version is installed" \
+  "$(readlink "$H/.claude/skills/ship")" "$PREV/skills/ship/"
+HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$S/repo/install.sh" full >/dev/null 2>&1
+chk "the upgrade succeeds" "$?" "0"
+chk "the superseded payload is gone" "$([ -e "$PREV" ] && echo yes || echo no)" "no"
+chk "and its links moved to the new root" \
+  "$(readlink "$H/.claude/skills/ship")" "$S/repo/skills/ship/"
+chk "no dangling links left" \
+  "$(find "$H/.claude" "$H/.codex" -maxdepth 3 -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l | tr -d ' ')" "0"
+
+# The payload we are INSTALLING FROM must survive, or install deletes itself.
+H="$S/h84b"; mkdir -p "$H"
+CUR="$H/.local/share/onbelay/9.9.9"
+mkdir -p "$(dirname "$CUR")"; cp -R "$S/repo" "$CUR"
+HOME="$H" ONBELAY_NONINTERACTIVE=1 bash "$CUR/install.sh" full >/dev/null 2>&1
+chk "install never deletes the payload it is running from" \
+  "$([ -f "$CUR/install.sh" ] && echo yes || echo no)" "yes"
+chk "and its own links still resolve" \
+  "$(readlink "$H/.claude/skills/ship")" "$CUR/skills/ship/"
+
 echo
 echo "PASS $pass  FAIL $fail"
 [[ $fail -eq 0 ]] || exit 1
