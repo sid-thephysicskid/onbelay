@@ -2,6 +2,26 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+Upgrading from 0.3.x works. The rename to On Belay changed every marker the
+installer uses to recognize its own work, so a 0.3.x machine read as covered in
+files we had not written: install aborted with `12 path(s) are occupied by
+something that is not ours` and a list of `mv` commands for its own hooks, and
+uninstall walked away from 33 links it owned while reporting success.
+
+`install` now renames that state to its current spelling first: the origins
+file, the hook command tag in `settings.json` and Codex `hooks.json`, both
+settings backups and the skill-conflict record. The superseded
+`~/.local/share/agent-config/` payload is removed once nothing links into it.
+`--check` reports the old install and changes nothing.
+
+This supersedes the 0.4.0 note below: uninstalling 0.3.x first is no longer
+necessary. Upgrading in place is now the supported path, and removal works from
+either era.
+
 ## [0.4.0] - 2026-08-26
 
 ### Changed

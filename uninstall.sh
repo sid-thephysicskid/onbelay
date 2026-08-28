@@ -67,6 +67,11 @@ REMOVE_OPERATOR=0
 # someone else's: install refuses 21 paths it actually owns, and uninstall walks
 # away from 21 links it made, reporting success either way.
 ORIGINS="$CLAUDE_ROOT/.onbelay-origins"
+
+# Same rename, opposite direction: a 0.3.x machine could not be cleanly REMOVED
+# either. It walked away from 33 links it owned and reported success.
+bash "$REPO/scripts/migrate-legacy.sh" "$CLAUDE_ROOT" "$CODEX_ROOT" >/dev/null 2>&1 || true
+
 _is_our_target() {
   # PATH BOUNDARY, not a bare prefix. `$t == "$REPO"*` also matched any path
   # that merely shares a string prefix with the clone, so a user's own

@@ -33,6 +33,7 @@
     "output-styles/",
     "scripts/agent-init",
     "scripts/install_codex_hooks.py",
+    "scripts/migrate-legacy.sh",
     "scripts/install_settings.py",
     "scripts/manage_conflicts.py",
     "scripts/manage_instructions.py",
